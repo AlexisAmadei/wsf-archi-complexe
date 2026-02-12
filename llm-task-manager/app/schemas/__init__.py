@@ -21,6 +21,13 @@ from app.schemas.story import (
     StoryStatusTransition,
     StoryUpdate,
 )
+from app.schemas.ticket import (
+    TicketCreate,
+    TicketList,
+    TicketResponse,
+    TicketStatusTransition,
+    TicketUpdate,
+)
 
 __all__ = [
     # Project
@@ -55,4 +62,10 @@ __all__ = [
     "DocumentUpdate",
     "DocumentResponse",
     "DocumentList",
+    # Ticket
+    "TicketCreate",
+    "TicketUpdate",
+    "TicketResponse",
+    "TicketList",
+    "TicketStatusTransition",
 ]

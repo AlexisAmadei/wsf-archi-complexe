@@ -172,5 +172,31 @@ class BusinessRulesEngine:
         return True
 
 
+    @staticmethod
+    def validate_ticket_deletion(ticket_status: str) -> bool:
+        """
+        Validate that a ticket can be deleted (soft-delete).
+
+        A ticket can only be deleted if it is in 'backlog' or 'todo' status.
+
+        Args:
+            ticket_status: Current status of the ticket
+
+        Returns:
+            bool: True if valid
+
+        Raises:
+            BusinessRuleViolation: If the ticket cannot be deleted
+        """
+        from app.models.ticket import TicketStatus
+        allowed = (TicketStatus.BACKLOG, TicketStatus.TODO)
+        if ticket_status not in allowed:
+            raise BusinessRuleViolation(
+                f"Cannot delete ticket in status '{ticket_status}'. "
+                "Only tickets in 'backlog' or 'todo' can be deleted."
+            )
+        return True
+
+
 # Export singleton instance
 rules_engine = BusinessRulesEngine()

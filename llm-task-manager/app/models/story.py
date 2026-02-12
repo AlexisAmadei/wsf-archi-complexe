@@ -16,6 +16,7 @@ from app.database import Base
 if TYPE_CHECKING:
     from app.models.epic import Epic
     from app.models.sprint import Sprint
+    from app.models.ticket import Ticket
 
 
 class StoryStatus(str):
@@ -98,6 +99,12 @@ class Story(Base):
         "Sprint",
         secondary="story_sprint",
         back_populates="stories"
+    )
+
+    tickets: Mapped[list["Ticket"]] = relationship(
+        "Ticket",
+        back_populates="story",
+        cascade="all, delete-orphan",
     )
     
     # Table constraints

@@ -20,6 +20,7 @@ from app.services.epic_service import EpicService
 from app.services.project_service import ProjectService
 from app.services.sprint_service import SprintService
 from app.services.story_service import StoryService
+from app.services.ticket_service import TicketService
 
 T = TypeVar("T")
 
@@ -77,6 +78,13 @@ async def get_comment_service() -> AsyncGenerator[CommentService, None]:
     """Get a CommentService instance with its own DB session."""
     async with get_db_session() as session:
         yield CommentService(session)
+
+
+@asynccontextmanager
+async def get_ticket_service() -> AsyncGenerator[TicketService, None]:
+    """Get a TicketService instance with its own DB session."""
+    async with get_db_session() as session:
+        yield TicketService(session)
 
 
 @asynccontextmanager

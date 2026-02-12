@@ -42,3 +42,4 @@ import mcp_server.tools.story_tools  # noqa: F401, E402
 import mcp_server.tools.sprint_tools  # noqa: F401, E402
 import mcp_server.tools.comment_tools  # noqa: F401, E402
 import mcp_server.tools.document_tools  # noqa: F401, E402
+import mcp_server.tools.ticket_tools  # noqa: F401, E402

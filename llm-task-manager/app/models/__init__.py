@@ -10,6 +10,7 @@ from app.models.epic import Epic, EpicStatus
 from app.models.project import Project
 from app.models.sprint import Sprint, SprintStatus, story_sprint
 from app.models.story import Story, StoryPriority, StoryStatus
+from app.models.ticket import Ticket, TicketPriority, TicketStatus
 
 __all__ = [
     # Models
@@ -19,12 +20,15 @@ __all__ = [
     "Sprint",
     "Comment",
     "Document",
+    "Ticket",
     # Enums
     "EpicStatus",
     "StoryStatus",
     "StoryPriority",
     "SprintStatus",
     "CommentEntityType",
+    "TicketStatus",
+    "TicketPriority",
     "DocumentTemplateType",
     # Association tables
     "story_sprint",

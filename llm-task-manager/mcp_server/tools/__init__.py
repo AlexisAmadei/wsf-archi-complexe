@@ -11,6 +11,7 @@ Tools organized by domain:
 - sprint_tools: Sprint management with BR-03/BR-04 (6 tools)
 - comment_tools: Polymorphic comments (2 tools)
 - document_tools: Document management with templates (5 tools)
+- ticket_tools: Ticket (sub-task) management with BR-02 (8 tools)
 
-Total: 26 tools
+Total: 34 tools
 """

@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.api import comments, documents, epics, health, projects, sprints, stories
+from app.api import comments, documents, epics, health, projects, sprints, stories, tickets
 from app.config import settings
 from app.database import close_db, init_db
 from app.exceptions import BusinessRuleViolation, EntityNotFound, NotFoundError, ValidationError
@@ -152,3 +152,4 @@ app.include_router(stories.router, prefix="/api/v1/stories", tags=["stories"])
 app.include_router(sprints.router, prefix="/api/v1/sprints", tags=["sprints"])
 app.include_router(comments.router, prefix="/api/v1/comments", tags=["comments"])
 app.include_router(documents.router, prefix="/api/v1/documents", tags=["documents"])
+app.include_router(tickets.router, prefix="/api/v1/tickets", tags=["tickets"])
