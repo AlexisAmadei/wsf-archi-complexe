@@ -7,7 +7,7 @@ authors = [
 ]
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT"}
+license = "MIT"
 
 dependencies = [
     # FastAPI and server
@@ -48,6 +48,11 @@ dev = [
 [build-system]
 requires = ["setuptools>=68.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*", "mcp_server*", "alembic*", "scripts*"]
+exclude = ["tests*", "sql*"]
 
 [tool.ruff]
 line-length = 88

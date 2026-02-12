@@ -8,7 +8,7 @@ Connects to Google Cloud SQL PostgreSQL instance.
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from sqlalchemy import event
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.pool import NullPool, QueuePool
+from sqlalchemy.pool import NullPool
 
 from app.config import settings
 
@@ -42,8 +42,8 @@ def create_engine() -> AsyncEngine:
     # Connection pool configuration
     if settings.is_production:
         # Production: Use Unix socket for Cloud SQL
+        # Async engine uses its own async pool adapter
         engine_kwargs.update({
-            "poolclass": QueuePool,
             "pool_size": settings.DB_POOL_SIZE,
             "max_overflow": settings.DB_MAX_OVERFLOW,
             "pool_timeout": settings.DB_POOL_TIMEOUT,
@@ -53,7 +53,6 @@ def create_engine() -> AsyncEngine:
     else:
         # Development: Via Cloud SQL Proxy
         engine_kwargs.update({
-            "poolclass": QueuePool,
             "pool_size": 2,
             "max_overflow": 5,
             "pool_pre_ping": True,
@@ -123,7 +122,7 @@ async def check_db_connection() -> bool:
     """
     try:
         async with AsyncSessionLocal() as session:
-            await session.execute("SELECT 1")
+            await session.execute(text("SELECT 1"))
         return True
     except Exception as e:
         print(f"Database connection failed: {e}")
