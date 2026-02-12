@@ -384,6 +384,127 @@ src/
 └── db/                  # Connexion et migrations
 ```
 
+#### **Intégration du SDK Python MCP**
+
+**A. Installation et Import**
+
+https://github.com/modelcontextprotocol/python-sdk?tab=readme-ov-file#installation
+
+**B. Placement dans l'architecture**
+
+Le SDK MCP est utilisé dans **deux fichiers clés** :
+
+**1. `src/mcp/server.py` : Initialisation du serveur MCP**
+```python
+from mcp.server import Server
+from mcp.server.sse import SseServerTransport
+from fastapi import FastAPI
+
+# Création de l'instance serveur MCP
+mcp_server = Server("llm-task-manager")
+
+# Initialisation dans FastAPI (transport SSE pour Cloud Run)
+def init_mcp_sse(app: FastAPI):
+    """Monte le serveur MCP sur FastAPI via SSE."""
+    sse_transport = SseServerTransport("/mcp/sse")
+    app.mount("/mcp", sse_transport.asgi_app())
+    return mcp_server
+```
+
+**2. `src/mcp/tools.py` : Déclaration des tools avec décorateur `@mcp.tool()`**
+```python
+from mcp.server import Server
+from src.services.story_service import StoryService
+from src.models.schemas import Story
+
+mcp_server = Server("llm-task-manager")
+
+@mcp_server.tool()
+async def create_story(
+    project_id: str,
+    epic_id: str,
+    title: str,
+    description: str,
+    story_points: int = 0,
+    priority: str = "medium",
+    assignee: str | None = None
+) -> dict:
+    """Crée une story dans un epic.
+    
+    Les story_points doivent être dans la suite de Fibonacci (0,1,2,3,5,8,13).
+    La description doit inclure les critères d'acceptation.
+    
+    Args:
+        project_id: Identifiant du projet
+        epic_id: Identifiant de l'epic parent
+        title: Titre de la story (5-300 caractères)
+        description: Description détaillée avec critères d'acceptation
+        story_points: Estimation de l'effort (Fibonacci)
+        priority: Priorité (low, medium, high, critical)
+        assignee: Personne assignée (optionnel)
+    
+    Returns:
+        Story créée avec son identifiant unique
+    """
+    # Appel au service métier (partagé avec l'API REST)
+    story = await StoryService.create(
+        project_id=project_id,
+        epic_id=epic_id,
+        title=title,
+        description=description,
+        story_points=story_points,
+        priority=priority,
+        assignee=assignee
+    )
+    return story.model_dump()
+```
+
+**C. Point d'entrée unifié : `src/main.py`**
+```python
+from fastapi import FastAPI
+from src.api import projects, epics, stories, sprints  # Routes REST
+from src.mcp.server import init_mcp_sse
+from src.mcp import tools  # Import pour enregistrer les tools
+
+app = FastAPI(title="LLM Task Manager")
+
+# Montage des routes REST
+app.include_router(projects.router, prefix="/api/v1")
+app.include_router(epics.router, prefix="/api/v1")
+app.include_router(stories.router, prefix="/api/v1")
+app.include_router(sprints.router, prefix="/api/v1")
+
+# Montage du serveur MCP (transport SSE)
+mcp_server = init_mcp_sse(app)
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+```
+
+**D. Flux d'exécution**
+
+```
+1. Claude Desktop/Claude Code se connecte à /mcp/sse
+2. Le client MCP demande la liste des tools disponibles
+3. Le serveur MCP retourne les 27 tools déclarés avec @mcp_server.tool()
+4. Le LLM décide d'appeler create_story
+5. Le client MCP envoie les paramètres au serveur MCP
+6. Le tool create_story() appelle StoryService.create() (logique partagée)
+7. StoryService valide via RulesEngine (BR-01 : Fibonacci)
+8. La story est persistée en PostgreSQL
+9. Le résultat est retourné au LLM via le client MCP
+```
+
+**E. Avantages de cette architecture**
+
+| Aspect | Bénéfice |
+|--------|----------|
+| **Logique partagée** | `StoryService` est appelé identiquement par `POST /api/v1/stories` (REST) et par `create_story()` (MCP) |
+| **Validation unifiée** | Les modèles Pydantic et le `RulesEngine` sont réutilisés dans les deux points d'entrée |
+| **Déploiement simplifié** | Un seul conteneur Cloud Run expose `/api/*` (REST) et `/mcp/sse` (MCP) |
+| **Transport adapté au cloud** | SSE (Server-Sent Events) fonctionne sur HTTP, compatible avec Cloud Run (contrairement à stdio qui nécessite un process local) |
+
 **Trade-off accepté :**
 - Un service unique signifie que si le serveur MCP crash, l'API REST devient temporairement indisponible (et inversement). Cependant, dans le cadre d'un MVP et avec la supervision de Cloud Run (health checks + auto-restart), ce risque est acceptable.
 
@@ -617,7 +738,7 @@ flowchart TD
 ### **3. Configuration de Scaling et Performance**
 
 **A. Région**
-- **Région :** `europe-west1` (Belgique) pour minimiser la latence et l'empreinte carbone
+- **Région :** `europe-west1` pour des performances otpimisées et une souveraineté de la data
 
 **B. Scaling**
 - **min-instances :** 0 (optimisation des coûts, acceptation du cold start pour ce TP)
