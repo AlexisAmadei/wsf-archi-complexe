@@ -332,3 +332,65 @@ Le pipeline est déclenché à chaque push sur la branche `main`.
 
 **D. Deploy**
 - Mise à jour du service Cloud Run avec la nouvelle image via `gcloud run deploy`
+
+---
+
+## 3.5 **Security Architecture**
+
+La sécurité du système repose sur une approche "Zero Trust" entre les clients (humains ou agents) et l'API, avec une validation stricte à chaque couche.
+
+### **1. Stratégies d'Authentification**
+
+**A. REST API**
+- **Méthode :** Utilisation de JWT (JSON Web Tokens)
+- **Justification :** Permet une authentification stateless adaptée à Cloud Run, facilite la gestion des rôles (claims) et évite des appels répétés à la BDD pour vérifier les sessions
+
+**B. MCP Server**
+- **Transport :** Via SSE (Server-Sent Events) sur HTTP
+- **Justification :** Contrairement au mode stdio (local), le mode SSE est nécessaire pour un déploiement Cloud Run. La sécurité est alignée sur l'API REST : le client MCP doit passer un `Authorization: Bearer <JWT>` dans les headers de la connexion initiale
+
+### **2. Matrice de Permissions (RBAC)**
+
+| Entité | Rôle : Admin (Léa) | Rôle : Contributeur (Sarah) | Rôle : Agent MCP |
+|--------|-------------------|----------------------------|------------------|
+| **Projets/Sprints** | Full CRUD + Clôture | Lecture seule | Lecture seule |
+| **Stories/Tickets** | Full CRUD | Création / Update | CRUD (selon contexte) |
+| **Documents** | Full CRUD | Création / Lecture | Création (Template) |
+| **Configuration** | Gestion des clés | Interdit | Interdit |
+
+### **3. Mesures de Protection et Défense en Profondeur**
+
+Le système applique une stratégie de défense en profondeur sur quatre couches pour chaque requête (REST ou MCP) :
+
+**A. Couche Transport (GCP)**
+- Chiffrement TLS 1.3 forcé sur Cloud Run
+- Protection contre les attaques DDoS via Google Cloud Armor (standard)
+
+**B. Couche Validation (Pydantic)**
+- Premier rempart applicatif
+- Vérification des types, des formats d'UUID, et de la suite de Fibonacci pour les points
+- Rejet immédiat si le schéma est invalide
+
+**C. Couche Logique Métier (Service Layer)**
+- Validation des transitions de workflow (BR-02) et des règles de clôture de sprint (BR-04)
+- Cette couche est partagée entre le routeur FastAPI et le serveur MCP pour garantir une cohérence absolue
+
+**D. Couche Persistence (SQL)**
+- Utilisation systématique de requêtes paramétrées via l'ORM (prévention des injections SQL)
+- Contraintes CHECK en base de données comme ultime filet de sécurité
+
+### **4. Contrôle d'Accès et Abus**
+
+**A. Rate Limiting**
+- Limite de **100 requêtes/minute** par utilisateur
+- Plus stricte pour les tools MCP afin d'éviter les boucles infinies d'agents IA
+
+**B. Audit Trail**
+- Chaque modification via un tool MCP est enregistrée avec une mention `agent_id`
+- Permet de tracer les actions effectuées par l'IA par rapport aux actions humaines
+
+**C. Politique d'exposition MCP**
+- Seuls les tools explicitement décorés avec `@mcp.tool()` sont visibles par le LLM
+- Aucun accès direct aux tables système ou aux secrets n'est exposé
+
+---
