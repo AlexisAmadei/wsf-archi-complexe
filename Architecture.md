@@ -28,16 +28,17 @@ Cas d'usage concrets
 
     Maintenance autonome du Sprint : En fin de journée, l'IA analyse les Stories dont le statut est resté bloqué en in_progress. Elle ajoute un commentaire sur chaque story pour demander un statut ou propose de les reporter au sprint suivant via update_story_sprint.
 
-Cas d'usage concrets
+Règles métier du domaine (Business Rules)
 
-    Extraction de Story en temps réel : Léa discute d'une nouvelle fonctionnalité de sécurité avec l'IA dans son IDE. Sans quitter le chat, l'IA identifie les tâches nécessaires et appelle le tool create_story pour les ajouter au backlog.
+Le système garantit l'intégrité des données via des règles strictes appliquées aux interfaces REST et MCP :
 
-    Génération de Documentation Technique : Suite à une séance de debugging complexe, Léa demande à l'IA de résumer la solution. L'IA utilise le tool create_document avec le template Technical Decision Record (TDR) pour consigner la décision dans le projet.
+    BR-01 (Estimation Fibonacci) : Les estimations (story_points) doivent obligatoirement appartenir à la suite de Fibonacci : 0, 1, 2, 3, 5, 8, 13. (poids des stories)
 
-    Maintenance autonome du Sprint : En fin de journée, l'IA analyse les Stories dont le statut est resté bloqué en in_progress. Elle ajoute un commentaire sur chaque story pour demander un statut ou propose de les reporter au sprint suivant via update_story_sprint.
+    BR-02 (Workflow de statut) : Une story doit respecter l'ordre suivant : backlog → todo → in_progress → in_review → done. Aucun saut d'étape n'est autorisé.
 
-De la Vision au Backlog (Sarah & Cortex) : Sarah décrit une vision produit à Cortex ("On veut un système de commentaires sur les stories"). Cortex utilise le tool create_epic puis create_story pour structurer le besoin en tickets concrets instantanément.
+    BR-03 (Unicité du Sprint Actif) : Une story ne peut être affectée qu'à un seul sprint actif à la fois. L'affectation à un nouveau sprint retire automatiquement la story du sprint précédent.
 
-Documentation Architecturelle (Léa & Cortex) : Après une session de conception, Léa demande à Cortex de documenter la décision. Cortex utilise le tool create_document avec le template Technical Decision Record (TDR) pour consigner les choix techniques directement dans le projet.
+    BR-04 (Condition de clôture) : Un sprint ne peut être clôturé (closed) que si 100% de ses stories sont à l'état done. Les stories restantes doivent être déplacées avant la clôture.
 
-Mise à jour de statut contextuelle (Cortex) : Alors qu'un développeur termine une fonction dans son IDE, Cortex détecte la fin du travail et utilise update_story_status pour passer la story en in_review et ajoute un commentaire avec le lien vers la pull request.
+
+---
