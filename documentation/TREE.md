@@ -3,8 +3,8 @@
 ```
 llm-task-manager/
 ├── README.md
-├── ARCHITECTURE.md
 ├── pyproject.toml
+├── .gitignore
 ├── .gitignore
 ├── .dockerignore
 ├── Dockerfile
