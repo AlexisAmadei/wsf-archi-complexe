@@ -3,7 +3,7 @@ Sprint service implementing business logic for sprints.
 
 Handles sprint management and implements:
 - BR-03: A story can only be in one active sprint
-- BR-04: Sprint closure rules (no in-progress stories)
+- BR-04: Sprint closure rules (all stories must be done)
 """
 
 from __future__ import annotations
@@ -156,7 +156,7 @@ class SprintService:
         """
         Close a sprint (transition from active to closed).
         
-        Implements BR-04: Sprint can only be closed if no stories are in progress,
+        Implements BR-04: Sprint can only be closed if 100% of its stories are done,
         unless force=True.
         
         Args:
