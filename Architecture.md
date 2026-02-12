@@ -567,6 +567,7 @@ L'infrastructure est entièrement "Serverless" sur Google Cloud Platform (GCP) p
 
 ### **1. Diagramme de Déploiement**
 
+```mermaid
 flowchart TD
     subgraph Local_Dev [Environnement de Développement]
         A[Code Python / uv] --> B[Git Push GitHub]
@@ -581,12 +582,12 @@ flowchart TD
 
     subgraph GCP_Runtime [Infrastructure Cloud Run]
         F --> G[Déploiement sur Cloud Run europe-west1]
-        
+
         subgraph Config [Configuration & Sécurité]
             H[(Secret Manager)] -- "DATABASE_URL" --> G
             I[(Cloud SQL PostgreSQL)] -- "Unix Socket" --> G
         end
-        
+
         G --> J{Service en Ligne}
     end
 
@@ -601,6 +602,7 @@ flowchart TD
     style J fill:#00c853,stroke:#333,color:#fff
     style I fill:#4285F4,stroke:#333,color:#fff
     style H fill:#FBBC05,stroke:#333,color:#fff
+```
 
 ### **2. Services GCP utilisés**
 
