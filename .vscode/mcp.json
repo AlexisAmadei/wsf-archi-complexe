@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "llmTaskManager": {
+      "type": "sse",
+      "url": "https://llm-task-manager-mcp-1086023562571.europe-west1.run.app/sse"
+    }
+  }
+}
