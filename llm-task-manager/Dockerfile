@@ -33,7 +33,6 @@ COPY app/ ./app/
 COPY mcp_server/ ./mcp_server/
 COPY alembic/ ./alembic/
 COPY alembic.ini ./
-COPY scripts/ ./scripts/
 
 # ---------------------
 # API target: FastAPI REST API

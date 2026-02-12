@@ -2,7 +2,10 @@
   "servers": {
     "llmTaskManager": {
       "type": "sse",
-      "url": "https://llm-task-manager-mcp-1086023562571.europe-west1.run.app/sse"
+      "url": "https://llm-task-manager-mcp-1086023562571.europe-west1.run.app/sse",
+      "headers": {
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGV4aXNhbWFkZWlAcHJvdG9uLm1lIiwicm9sZSI6ImFkbWluIiwicGVybWlzc2lvbnMiOlsicHJvamVjdHM6Y3JlYXRlIiwicHJvamVjdHM6cmVhZCIsInByb2plY3RzOnVwZGF0ZSIsInByb2plY3RzOmRlbGV0ZSIsImVwaWNzOioiLCJzdG9yaWVzOioiLCJzcHJpbnRzOioiLCJjb21tZW50czoqIiwiZG9jdW1lbnRzOioiXSwidHlwZSI6Im1jcCIsImV4cCI6MTc3ODY4NzAyNn0.p6YVRalfFbZ8bMB1vASF84Rwz0zKiCOPBY7xQc5aaVI"
+      }
     }
   }
 }

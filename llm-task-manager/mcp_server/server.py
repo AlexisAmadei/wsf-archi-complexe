@@ -7,6 +7,10 @@ Both share the same business logic services and database connection.
 Exposes project management tools via the Model Context Protocol (MCP)
 using SSE transport for communication with LLM clients
 (Claude Desktop, Cursor, etc.).
+
+Authentication:
+    The MCP server requires JWT Bearer authentication via the Authorization header:
+    Authorization: Bearer <jwt_token>
 """
 
 import os
@@ -15,6 +19,7 @@ from mcp.server.fastmcp import FastMCP
 
 # Get port from environment (Cloud Run sets PORT)
 port = int(os.environ.get("PORT", "8001"))
+
 
 # Create MCP server instance
 mcp = FastMCP(
