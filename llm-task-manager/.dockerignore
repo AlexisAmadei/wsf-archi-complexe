@@ -1,21 +1,74 @@
-__pycache__
+# Environnement virtuel Python
+.venv/
+venv/
+env/
+.venv
+venv
+env
+
+# Fichiers de cache Python
+__pycache__/
 *.pyc
 *.pyo
 *.pyd
-.pytest_cache
+.Python
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .coverage
-htmlcov
-.env
-.env.*
-.venv
-venv
-tests
-*.md
-.git
+htmlcov/
+
+# Tests (non nécessaires en production)
+tests/
+test_*.py
+*_test.py
+*.test.py
+pytest.ini
+conftest.py
+
+# Scripts de test et développement
+scripts/
+test_*.sh
+*.log
+
+# Git et versioning
+.git/
 .gitignore
-.dockerignore
+.gitattributes
+
+# IDE et assistants
+.vscode/
+.idea/
+.claude/
+.cursor/
+*.swp
+*.swo
+*~
+
+# Documentation
+README.md
+LICENSE
+documentation/
+docs/
+
+# Fichiers de configuration locale
+.env
+.env.local
+.env.*.local
+*.local
+
+# Fichiers temporaires
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Cloud Build et Docker
 cloudbuild.yaml
-documentation
-sql
-.ruff_cache
-.mypy_cache
+Dockerfile
+.dockerignore
+
+# SQL et données de seed (non nécessaires en production)
+sql/

@@ -8,6 +8,8 @@ Implements the 4 core business rules:
 - BR-04: Sprint can only be closed if no stories are in progress
 """
 
+from __future__ import annotations
+
 from app.exceptions import BusinessRuleViolation
 from app.models.sprint import SprintStatus
 from app.models.story import Story, StoryStatus
