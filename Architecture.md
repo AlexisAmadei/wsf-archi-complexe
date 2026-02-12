@@ -464,7 +464,71 @@ ON sprint_stories (story_id) WHERE (is_active = TRUE);
 
 ### **3. Diagramme Entité-Relation (ERD)**
 
-*[À compléter avec le diagramme ERD]*
+```mermaid
+erDiagram
+    projects ||--o{ epics : "1:N"
+    projects ||--o{ sprints : "1:N"
+    projects ||--o{ documents : "1:N"
+    epics ||--o{ stories : "1:N"
+    sprints ||--o{ sprint_stories : "1:N"
+    stories ||--o{ sprint_stories : "1:N"
+    stories ||--o{ comments : "1:N"
+    epics ||--o{ comments : "1:N"
+    doc_templates ||--o{ documents : "1:N"
+
+    projects {
+        UUID id PK
+        TEXT name
+        VARCHAR(10) key
+    }
+    epics {
+        UUID id PK
+        UUID project_id FK
+        TEXT title
+        TEXT status
+    }
+    stories {
+        UUID id PK
+        UUID epic_id FK
+        TEXT title
+        TEXT description
+        INT points
+        TEXT status
+        TEXT priority
+        TEXT assignee
+    }
+    sprints {
+        UUID id PK
+        UUID project_id FK
+        TEXT name
+        TEXT status
+    }
+    sprint_stories {
+        UUID sprint_id PK,FK
+        UUID story_id PK,FK
+        TIMESTAMP added_at
+        BOOLEAN is_active
+    }
+    comments {
+        UUID id PK
+        UUID parent_id FK
+        TEXT parent_type
+        TEXT content
+        TEXT author
+    }
+    documents {
+        UUID id PK
+        UUID project_id FK
+        TEXT template_key FK
+        TEXT title
+        JSONB content
+    }
+    doc_templates {
+        TEXT key PK
+        TEXT name
+        JSONB schema
+    }
+```
 
 ### **4. Indexation pour la performance**
 
