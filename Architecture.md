@@ -132,5 +132,69 @@ Le système garantit l'intégrité des données via des règles strictes appliqu
   - Validateur de clôture de sprint
   - Validateur de suppression de tickets
 
----
+### Diagramme d'architecture
+```mermaid
+graph TB
+    subgraph "Front layer"
+        LLM
+        User
+    end
 
+    subgraph "Access Layer"
+        MCP["MCP Server<br/>(Model Context Protocol)"]
+        REST["REST API Gateway<br/>(HTTP/JSON)"]
+    end
+
+    subgraph "Services Layer"
+        StoryService["Service Gestion Stories<br/>- CRUD Stories<br/>- Estimation points<br/>- Workflow statuts"]
+        SprintService["Service Gestion Sprints<br/>- Cycle de vie sprints<br/>- Validation clôture<br/>- Association Story-Sprint"]
+        TicketService["Service Gestion Tickets<br/>- CRUD Tickets<br/>- Déplacement tickets<br/>- Historique & Audit"]
+        DocService["Service Documentation<br/>- Génération documents<br/>- Templates (TDR, ADR)<br/>- Versioning"]
+        RulesEngine["Moteur Règles Métier<br/>- Validation BR-01 à BR-04<br/>- Machine à états<br/>- Politiques"]
+    end
+
+    subgraph "Data Layer"
+        DB1[("Base Stories<br/>& Sprints")]
+        DB2[("Base Tickets<br/>& Historique")]
+        DB3[("Base Documents")]
+    end
+
+    LLM --> MCP
+    User --> REST
+
+    MCP --> StoryService
+    MCP --> SprintService
+    MCP --> TicketService
+    MCP --> DocService
+
+    REST -.-> StoryService
+    REST -.-> SprintService
+    REST -.-> TicketService
+    REST -.-> DocService
+
+    StoryService -->|"Validate"| RulesEngine
+    SprintService -->|"Validate"| RulesEngine
+    TicketService -->|"Validate"| RulesEngine
+
+    StoryService -->|"gRPC/REST"| SprintService
+    TicketService -->|"gRPC/REST"| StoryService
+    DocService -->|"gRPC/REST"| StoryService
+    DocService -->|"gRPC/REST"| SprintService
+
+    StoryService --> DB1
+    SprintService --> DB1
+    TicketService --> DB2
+    DocService --> DB3
+
+    %% Styles: white text everywhere; Data layer darker
+    style MCP fill:#ffa726,stroke:#ffffff,color:#ffffff
+    style REST fill:#ffa726,stroke:#ffffff,color:#ffffff
+    style StoryService fill:#2b6cb0,stroke:#ffffff,color:#ffffff
+    style SprintService fill:#2b6cb0,stroke:#ffffff,color:#ffffff
+    style TicketService fill:#2b6cb0,stroke:#ffffff,color:#ffffff
+    style DocService fill:#2b6cb0,stroke:#ffffff,color:#ffffff
+    style RulesEngine fill:#d32f2f,stroke:#ffffff,color:#ffffff
+    style DB1 fill:#0f1724,stroke:#ffffff,color:#ffffff
+    style DB2 fill:#0f1724,stroke:#ffffff,color:#ffffff
+    style DB3 fill:#0f1724,stroke:#ffffff,color:#ffffff
+```
