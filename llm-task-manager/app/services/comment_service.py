@@ -5,6 +5,8 @@ Handles polymorphic comments that can be attached to any entity
 (epic, story, sprint, document).
 """
 
+from __future__ import annotations
+
 import uuid
 from typing import Optional
 

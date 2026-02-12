@@ -4,6 +4,8 @@ Project service implementing business logic for projects.
 Handles CRUD operations for projects: create, get, list.
 """
 
+from __future__ import annotations
+
 import uuid
 from typing import Optional
 

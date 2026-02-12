@@ -6,6 +6,8 @@ Handles sprint management and implements:
 - BR-04: Sprint closure rules (no in-progress stories)
 """
 
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
 from typing import Optional

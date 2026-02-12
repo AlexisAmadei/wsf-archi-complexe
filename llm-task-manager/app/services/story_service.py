@@ -5,6 +5,8 @@ Handles CRUD operations and implements BR-01 (Fibonacci points)
 and BR-02 (status transitions).
 """
 
+from __future__ import annotations
+
 import uuid
 from typing import Optional
 
