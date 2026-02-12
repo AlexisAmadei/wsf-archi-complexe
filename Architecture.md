@@ -503,7 +503,40 @@ L'infrastructure est entièrement "Serverless" sur Google Cloud Platform (GCP) p
 
 ### **1. Diagramme de Déploiement**
 
-*[À compléter avec le diagramme de déploiement]*
+flowchart TD
+    subgraph Local_Dev [Environnement de Développement]
+        A[Code Python / uv] --> B[Git Push GitHub]
+    end
+
+    subgraph GCP_CI_CD [Pipeline Cloud Build]
+        B --> C{Trigger Cloud Build}
+        C --> D[Docker Build : Utilisation de 'uv' pour la vitesse]
+        D --> E[Tests unitaires & Linting]
+        E --> F[Push Image vers Artifact Registry]
+    end
+
+    subgraph GCP_Runtime [Infrastructure Cloud Run]
+        F --> G[Déploiement sur Cloud Run europe-west1]
+        
+        subgraph Config [Configuration & Sécurité]
+            H[(Secret Manager)] -- "DATABASE_URL" --> G
+            I[(Cloud SQL PostgreSQL)] -- "Unix Socket" --> G
+        end
+        
+        G --> J{Service en Ligne}
+    end
+
+    subgraph Validation [Tests Post-Déploiement]
+        J --> K[Vérification /health]
+        J --> L[Test MCP via SSE]
+        J --> M[Test REST via JWT]
+    end
+
+    %% Style
+    style A fill:#f9f,stroke:#333
+    style J fill:#00c853,stroke:#333,color:#fff
+    style I fill:#4285F4,stroke:#333,color:#fff
+    style H fill:#FBBC05,stroke:#333,color:#fff
 
 ### **2. Services GCP utilisés**
 
