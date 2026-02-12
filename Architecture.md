@@ -198,3 +198,137 @@ graph TB
     style DB2 fill:#0f1724,stroke:#ffffff,color:#ffffff
     style DB3 fill:#0f1724,stroke:#ffffff,color:#ffffff
 ```
+
+## 3.3 **Data Architecture**
+L'architecture de données repose sur un modèle relationnel PostgreSQL rigoureux. La validation des données est effectuée en profondeur : d'abord par des contraintes SQL natives (premier niveau), puis par Pydantic au niveau applicatif.
+
+### **1. Schéma des tables**
+
+| Table | Colonnes (Type) | Contraintes |
+|-------|----------------|-------------|
+| `projects` | `id` (UUID), `name` (TEXT), `key` (VARCHAR(10)) | PK, UNIQUE(key), NOT NULL |
+| `epics` | `id` (UUID), `project_id` (UUID), `title` (TEXT), `status` (TEXT) | PK, FK(projects), NOT NULL |
+| `stories` | `id` (UUID), `epic_id` (UUID), `title` (TEXT), `description` (TEXT), `points` (INT), `status` (TEXT), `priority` (TEXT), `assignee` (TEXT) | PK, FK(epics), CHECK (points IN (0,1,2,3,5,8,13)), NOT NULL |
+| `sprints` | `id` (UUID), `project_id` (UUID), `name` (TEXT), `status` (TEXT) | PK, FK(projects), CHECK (status IN ('draft', 'active', 'closed')) |
+| `sprint_stories` | `sprint_id` (UUID), `story_id` (UUID), `added_at` (TIMESTAMP), `is_active` (BOOLEAN) | PK(sprint_id, story_id), FK(sprints), FK(stories) |
+| `comments` | `id` (UUID), `parent_id` (UUID), `parent_type` (TEXT), `content` (TEXT), `author` (TEXT) | PK, CHECK (parent_type IN ('story', 'epic')) |
+| `documents` | `id` (UUID), `project_id` (UUID), `template_key` (TEXT), `title` (TEXT), `content` (JSONB) | PK, FK(projects), FK(doc_templates) |
+| `doc_templates` | `key` (TEXT), `name` (TEXT), `schema` (JSONB) | PK (ex: 'TDR', 'SPEC', 'RETRO') |
+
+### **2. Relations et Cardinalités**
+
+**A. Projets, Epics & Stories (1:N)**
+- Un projet contient plusieurs Epics, chaque Epic contient plusieurs Stories
+- L'intégrité est maintenue via des clés étrangères (ON DELETE CASCADE sur les commentaires)
+
+**B. Polymorphisme des Commentaires**
+- Utilisation des colonnes `parent_id` et `parent_type` pour permettre d'attacher des commentaires à la fois aux Stories et aux Epics sans multiplier les tables
+
+**C. Relation Many-to-Many Historique (Stories <-> Sprints)**
+- La table de jonction `sprint_stories` conserve la trace de chaque passage d'une story dans un sprint
+- **Règle BR-03 (Unicité active) :** Un index partiel unique garantit qu'une story ne peut être "active" que dans un seul sprint à la fois :
+
+```sql
+CREATE UNIQUE INDEX idx_one_active_sprint_per_story 
+ON sprint_stories (story_id) WHERE (is_active = TRUE);
+```
+
+### **3. Diagramme Entité-Relation (ERD)**
+
+*[À compléter avec le diagramme ERD]*
+
+### **4. Indexation pour la performance**
+
+Pour optimiser les outils MCP (recherche et filtrage rapide), les index suivants sont déployés :
+
+**A. Recherche textuelle (LLM)**
+```sql
+CREATE INDEX idx_stories_fts ON stories USING GIN(to_tsvector('french', title || ' ' || description));
+```
+
+**B. Filtrage par statut/sprint**
+```sql
+CREATE INDEX idx_stories_status_sprint ON stories(status, epic_id);
+```
+
+**C. Performance jointure**
+```sql
+CREATE INDEX idx_sprint_stories_lookup ON sprint_stories(story_id, is_active);
+```
+
+### **5. Stratégie de Persistence des Documents**
+
+**A. Templates**
+- Stockés dans `doc_templates` sous forme de schémas JSON (JSON Schema)
+- Cela permet au serveur MCP de décrire dynamiquement au LLM les champs attendus pour un TDR ou une Retrospective
+
+**B. Instances**
+- Les documents finaux sont stockés dans la table `documents`
+- Le contenu est de type JSONB pour permettre une indexation efficace des champs internes tout en restant flexible face aux évolutions des templates
+
+---
+
+## 3.4 **Technology Architecture**
+
+L'infrastructure est entièrement "Serverless" sur Google Cloud Platform (GCP) pour minimiser l'ops et garantir une scalabilité immédiate.
+
+### **1. Diagramme de Déploiement**
+
+*[À compléter avec le diagramme de déploiement]*
+
+### **2. Services GCP utilisés**
+
+| Service | Justification |
+|---------|---------------|
+| **Cloud Run** | Hébergement du conteneur FastAPI/MCP. Pay-as-you-go et isolation forte |
+| **Cloud SQL (PostgreSQL)** | Base de données managée. Support natif des contraintes CHECK et JSONB |
+| **Cloud Build** | Pipeline CI/CD automatisé pour le déploiement continu depuis GitHub |
+| **Secret Manager** | Stockage sécurisé des clés API et des credentials de la base de données |
+| **Artifact Registry** | Stockage des images Docker versionnées |
+
+### **3. Configuration de Scaling et Performance**
+
+**A. Région**
+- **Région :** `europe-west1` (Belgique) pour minimiser la latence et l'empreinte carbone
+
+**B. Scaling**
+- **min-instances :** 0 (optimisation des coûts, acceptation du cold start pour ce TP)
+- **max-instances :** 5 (suffisant pour un usage en binôme et tests LLM)
+
+**C. Gestion du Cold Start**
+- Utilisation d'un runtime optimisé (`uv` pour une installation ultra-rapide des dépendances lors du build)
+- Limitation du nombre de librairies chargées au démarrage
+
+**D. Concurrency**
+- Réglé à **80 requêtes simultanées** par instance
+
+### **4. Stratégie de connexion BDD**
+
+Pour une sécurité maximale et une simplicité de configuration sur Cloud Run, la connexion utilise le Cloud SQL Python Connector via un Unix Socket :
+
+**A. Méthode**
+- Utilisation de la bibliothèque `cloud-sql-python-connector`
+
+**B. Avantages**
+- Pas besoin de gérer les listes blanches d'IP
+- Chiffrement IAM automatique
+- Performance supérieure au proxy TCP externe
+
+**C. URL de connexion**
+- `postgresql+asyncpg://` (pour supporter l'asynchronisme de FastAPI)
+
+### **5. Pipeline CI/CD (Cloud Build)**
+
+Le pipeline est déclenché à chaque push sur la branche `main`.
+
+**A. Build**
+- Construction de l'image Docker à l'aide de `uv` pour un cache optimisé
+
+**B. Lint & Test**
+- Exécution de `pytest` et `ruff` à l'intérieur du conteneur temporaire
+
+**C. Migration**
+- Exécution des migrations Alembic (via un job Cloud Run temporaire) pour mettre à jour le schéma PostgreSQL sans downtime
+
+**D. Deploy**
+- Mise à jour du service Cloud Run avec la nouvelle image via `gcloud run deploy`
