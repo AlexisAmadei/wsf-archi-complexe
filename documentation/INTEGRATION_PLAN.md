@@ -268,39 +268,76 @@ Créer les routers dans `app/api/`. Tous les endpoints seront testés via Cloud 
 
 ---
 
-## Phase 5 : Serveur MCP
+## Phase 5 : Serveur MCP (standalone, dissocié de l'API)
 
-### Étape 5.1 : Configuration du serveur MCP
-- Créer `mcp_server/server.py` avec initialisation SSE
-- Créer `mcp_server/shared_services.py` pour l'accès aux services métier
+> **Architecture** : Le serveur MCP est un processus **indépendant** de l'API FastAPI.
+> Les deux partagent les **mêmes services métier** et la **même base de données**,
+> mais tournent comme deux processus distincts.
+>
+> ```
+> ┌──────────────┐       ┌──────────────────┐
+> │  API FastAPI  │       │  Serveur MCP SSE │
+> │  (port 8080)  │       │  (standalone)    │
+> └──────┬───────┘       └───────┬──────────┘
+>        │                       │
+>        │   ┌───────────────┐   │
+>        └──►│  Services      │◄──┘
+>            │  métier (app/) │
+>            └───────┬───────┘
+>                    │
+>            ┌───────▼───────┐
+>            │  Cloud SQL     │
+>            │  PostgreSQL    │
+>            └───────────────┘
+> ```
+
+### Étape 5.1 : Configuration du serveur MCP standalone
+- Créer `mcp_server/shared_services.py` : factory pour instancier les services métier avec leur propre session DB (pas de dépendance vers FastAPI)
+- Créer `mcp_server/server.py` : serveur MCP autonome avec transport SSE
+- Créer `mcp_server/__main__.py` : point d'entrée standalone (`python -m mcp_server`)
+
+**Structure de `shared_services.py`** :
+```python
+from app.database import AsyncSessionLocal
+from app.services import (
+    ProjectService, EpicService, StoryService,
+    SprintService, CommentService, DocumentService,
+)
+
+async def get_service(service_class):
+    """Factory pour instancier un service avec sa propre session DB."""
+    async with AsyncSessionLocal() as session:
+        service = service_class(session)
+        yield service
+```
 
 **Structure de `server.py`** :
 ```python
 from mcp.server import Server
 from mcp.server.sse import SseServerTransport
-from mcp_server.tools import (
-    project_tools, epic_tools, story_tools, 
-    sprint_tools, comment_tools, document_tools
+from starlette.applications import Starlette
+
+mcp = Server("llm-task-manager")
+
+# Les tools sont enregistrés via les modules mcp_server/tools/*
+
+sse = SseServerTransport("/messages/")
+
+starlette_app = Starlette(
+    routes=[
+        Route("/sse", endpoint=sse.handle_sse_connection),
+        Mount("/messages/", app=sse.handle_post_message),
+    ],
 )
+```
 
-app = Server("llm-task-manager")
-
-# Enregistrer tous les tools
-project_tools.register(app)
-epic_tools.register(app)
-story_tools.register(app)
-sprint_tools.register(app)
-comment_tools.register(app)
-document_tools.register(app)
-
-# Exposer via SSE
-async def run_sse():
-    async with SseServerTransport("/mcp/sse") as transport:
-        await app.run(transport)
+**Point d'entrée `__main__.py`** :
+```bash
+python -m mcp_server  # Lance le serveur MCP standalone
 ```
 
 ### Étape 5.2 : Implémentation des tools MCP
-Créer les tools dans `mcp_server/tools/` :
+Créer les tools dans `mcp_server/tools/`. Chaque tool accède **directement aux services métier** (pas via HTTP) :
 
 **`project_tools.py`** :
 - `create_project(name, description)` → project_id
@@ -342,14 +379,14 @@ Créer les tools dans `mcp_server/tools/` :
 
 **Exemple de tool avec docstring optimisée pour LLM** :
 ```python
-@app.tool()
+@mcp.tool()
 async def create_story(
     epic_id: str,
     title: str,
     description: str,
     priority: str = "medium",
     story_points: int | None = None
-) -> dict:
+) -> str:
     """Create a new user story in an epic.
     
     Use this tool when the user wants to:
@@ -365,24 +402,27 @@ async def create_story(
         story_points: Estimate using Fibonacci sequence: 1, 2, 3, 5, 8, 13, 21 (optional)
     
     Returns:
-        The created story with its ID and initial status (backlog)
-    
-    Example:
-        create_story(
-            epic_id="epic_123",
-            title="Add user authentication",
-            description="Implement JWT-based auth with refresh tokens",
-            priority="high",
-            story_points=5
-        )
+        JSON string with created story details and initial status (backlog)
     """
-    # Implementation...
+    async with AsyncSessionLocal() as session:
+        service = StoryService(session)
+        story = await service.create(StoryCreate(...))
+        return json.dumps(StoryResponse.model_validate(story).model_dump(), default=str)
 ```
 
-### Étape 5.3 : Intégration MCP dans FastAPI
-- Monter le serveur MCP sur `/mcp/sse` dans `app/main.py`
-- Assurer la réutilisation des services métier entre REST et MCP
-- Configurer les headers CORS pour SSE
+### Étape 5.3 : Déploiement standalone
+- Le serveur MCP a son propre `Dockerfile` ou commande de lancement
+- Configuration MCP pour Claude Desktop / Cursor :
+```json
+{
+  "mcpServers": {
+    "llm-task-manager": {
+      "url": "http://localhost:8001/sse"
+    }
+  }
+}
+```
+- Le MCP peut être déployé comme un **second service Cloud Run** ou sur le même conteneur avec un process manager
 
 ---
 
