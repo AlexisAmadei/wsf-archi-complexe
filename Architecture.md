@@ -199,6 +199,235 @@ graph TB
     style DB3 fill:#0f1724,stroke:#ffffff,color:#ffffff
 ```
 
+### **2. Liste des Endpoints REST**
+
+#### **Projets**
+
+| Méthode | Path | Paramètres | Réponse | Codes erreur |
+|---------|------|------------|---------|--------------|
+| POST | `/api/v1/projects` | Body: `{name: str, description?: str}` | `{id: str, name: str, description: str, created_at: datetime}` | 400, 401 |
+| GET | `/api/v1/projects` | Query: `limit?: int, offset?: int` | `{items: Project[], total: int}` | 401 |
+| GET | `/api/v1/projects/{project_id}` | Path: `project_id: str` | `{id: str, name: str, description: str, created_at: datetime}` | 401, 404 |
+
+#### **Epics**
+
+| Méthode | Path | Paramètres | Réponse | Codes erreur |
+|---------|------|------------|---------|--------------|
+| POST | `/api/v1/projects/{project_id}/epics` | Path: `project_id: str`<br>Body: `{title: str, description: str, status?: str}` | `{id: str, project_id: str, title: str, description: str, status: str, created_at: datetime}` | 400, 401, 404 |
+| GET | `/api/v1/projects/{project_id}/epics/{epic_id}` | Path: `project_id: str, epic_id: str` | `{id: str, project_id: str, title: str, description: str, status: str, created_at: datetime, updated_at: datetime}` | 401, 404 |
+| PUT | `/api/v1/projects/{project_id}/epics/{epic_id}` | Path: `project_id: str, epic_id: str`<br>Body: `{title?: str, description?: str, status?: str}` | `{id: str, ...updated_fields, updated_at: datetime}` | 400, 401, 404 |
+| GET | `/api/v1/projects/{project_id}/epics` | Path: `project_id: str`<br>Query: `status?: str, search?: str, limit?: int, offset?: int` | `{items: Epic[], total: int}` | 401, 404 |
+
+#### **Stories**
+
+| Méthode | Path | Paramètres | Réponse | Codes erreur |
+|---------|------|------------|---------|--------------|
+| POST | `/api/v1/projects/{project_id}/epics/{epic_id}/stories` | Path: `project_id: str, epic_id: str`<br>Body: `{title: str, description: str, story_points?: int, priority?: str, assignee?: str}` | `{id: str, epic_id: str, title: str, description: str, story_points: int, priority: str, status: str, assignee: str\|null, created_at: datetime}` | 400, 401, 404, 422 (BR-01) |
+| GET | `/api/v1/projects/{project_id}/stories/{story_id}` | Path: `project_id: str, story_id: str` | `{id: str, epic_id: str, title: str, description: str, story_points: int, priority: str, status: str, assignee: str\|null, sprint_id: str\|null, created_at: datetime, updated_at: datetime}` | 401, 404 |
+| PUT | `/api/v1/projects/{project_id}/stories/{story_id}` | Path: `project_id: str, story_id: str`<br>Body: `{title?: str, description?: str, story_points?: int, priority?: str, assignee?: str}` | `{id: str, ...updated_fields, updated_at: datetime}` | 400, 401, 404, 422 (BR-01) |
+| PATCH | `/api/v1/projects/{project_id}/stories/{story_id}/status` | Path: `project_id: str, story_id: str`<br>Body: `{status: str}` | `{id: str, status: str, updated_at: datetime}` | 401, 404, 422 (BR-02: `INVALID_STATUS_TRANSITION`) |
+| PATCH | `/api/v1/projects/{project_id}/stories/{story_id}/sprint` | Path: `project_id: str, story_id: str`<br>Body: `{sprint_id: str\|null}` | `{id: str, sprint_id: str\|null, updated_at: datetime}` | 401, 404, 422 (BR-03: `STORY_ALREADY_IN_ACTIVE_SPRINT`) |
+| GET | `/api/v1/projects/{project_id}/stories` | Path: `project_id: str`<br>Query: `status?: str, priority?: str, assignee?: str, sprint_id?: str, search?: str, limit?: int, offset?: int` | `{items: Story[], total: int}` | 401, 404 |
+
+#### **Sprints**
+
+| Méthode | Path | Paramètres | Réponse | Codes erreur |
+|---------|------|------------|---------|--------------|
+| POST | `/api/v1/projects/{project_id}/sprints` | Path: `project_id: str`<br>Body: `{name: str, goal: str, start_date: date, end_date: date}` | `{id: str, project_id: str, name: str, goal: str, status: str, start_date: date, end_date: date, created_at: datetime}` | 400, 401, 404 |
+| POST | `/api/v1/projects/{project_id}/sprints/{sprint_id}/activate` | Path: `project_id: str, sprint_id: str` | `{id: str, status: str, activated_at: datetime}` | 401, 404, 422 |
+| POST | `/api/v1/projects/{project_id}/sprints/{sprint_id}/close` | Path: `project_id: str, sprint_id: str` | `{id: str, status: str, closed_at: datetime}` | 401, 404, 422 (BR-04: `SPRINT_HAS_INCOMPLETE_STORIES`) |
+| GET | `/api/v1/projects/{project_id}/sprints/{sprint_id}` | Path: `project_id: str, sprint_id: str` | `{id: str, project_id: str, name: str, goal: str, status: str, start_date: date, end_date: date, stories: Story[], created_at: datetime}` | 401, 404 |
+| GET | `/api/v1/projects/{project_id}/sprints` | Path: `project_id: str`<br>Query: `status?: str, limit?: int, offset?: int` | `{items: Sprint[], total: int}` | 401, 404 |
+
+#### **Tickets**
+
+| Méthode | Path | Paramètres | Réponse | Codes erreur |
+|---------|------|------------|---------|--------------|
+| POST | `/api/v1/projects/{project_id}/stories/{story_id}/tickets` | Path: `project_id: str, story_id: str`<br>Body: `{title: str, description: str, assignee?: str, priority?: str}` | `{id: str, story_id: str, title: str, description: str, assignee: str\|null, priority: str, status: str, created_at: datetime}` | 400, 401, 404 |
+| PUT | `/api/v1/projects/{project_id}/tickets/{ticket_id}` | Path: `project_id: str, ticket_id: str`<br>Body: `{title?: str, description?: str, assignee?: str, priority?: str}` | `{id: str, ...updated_fields, updated_at: datetime}` | 400, 401, 404 |
+| PATCH | `/api/v1/projects/{project_id}/tickets/{ticket_id}/move` | Path: `project_id: str, ticket_id: str`<br>Body: `{target_status: str}` | `{id: str, status: str, updated_at: datetime}` | 401, 404, 422 (BR-02) |
+| PATCH | `/api/v1/projects/{project_id}/tickets/{ticket_id}/assign` | Path: `project_id: str, ticket_id: str`<br>Body: `{user_id: str}` | `{id: str, assignee: str, updated_at: datetime}` | 401, 404 |
+| DELETE | `/api/v1/projects/{project_id}/tickets/{ticket_id}` | Path: `project_id: str, ticket_id: str` | `204 No Content` | 401, 404, 422 (`CANNOT_DELETE_TICKET_IN_PROGRESS`) |
+| POST | `/api/v1/projects/{project_id}/tickets/{ticket_id}/restore` | Path: `project_id: str, ticket_id: str` | `{id: str, status: str, restored_at: datetime}` | 401, 404 |
+| POST | `/api/v1/projects/{project_id}/tickets/link` | Path: `project_id: str`<br>Body: `{parent_id: str, child_id: str}` | `{parent_id: str, child_id: str, linked_at: datetime}` | 401, 404, 422 |
+| GET | `/api/v1/projects/{project_id}/tickets/{ticket_id}/history` | Path: `project_id: str, ticket_id: str` | `{items: HistoryEntry[], total: int}` | 401, 404 |
+| GET | `/api/v1/projects/{project_id}/tickets` | Path: `project_id: str`<br>Query: `story_id?: str, status?: str, assignee?: str, limit?: int, offset?: int` | `{items: Ticket[], total: int}` | 401, 404 |
+
+#### **Commentaires**
+
+| Méthode | Path | Paramètres | Réponse | Codes erreur |
+|---------|------|------------|---------|--------------|
+| POST | `/api/v1/projects/{project_id}/epics/{epic_id}/comments` | Path: `project_id: str, epic_id: str`<br>Body: `{author: str, content: str}` | `{id: str, epic_id: str, author: str, content: str, created_at: datetime}` | 400, 401, 404 |
+| POST | `/api/v1/projects/{project_id}/stories/{story_id}/comments` | Path: `project_id: str, story_id: str`<br>Body: `{author: str, content: str}` | `{id: str, story_id: str, author: str, content: str, created_at: datetime}` | 400, 401, 404 |
+| GET | `/api/v1/projects/{project_id}/epics/{epic_id}/comments` | Path: `project_id: str, epic_id: str`<br>Query: `limit?: int, offset?: int` | `{items: Comment[], total: int}` | 401, 404 |
+| GET | `/api/v1/projects/{project_id}/stories/{story_id}/comments` | Path: `project_id: str, story_id: str`<br>Query: `limit?: int, offset?: int` | `{items: Comment[], total: int}` | 401, 404 |
+
+#### **Documents**
+
+| Méthode | Path | Paramètres | Réponse | Codes erreur |
+|---------|------|------------|---------|--------------|
+| POST | `/api/v1/projects/{project_id}/documents` | Path: `project_id: str`<br>Body: `{title: str, content: str, template?: str}` | `{id: str, project_id: str, title: str, content: str, template: str\|null, version: int, created_at: datetime}` | 400, 401, 404 |
+| GET | `/api/v1/projects/{project_id}/documents/{document_id}` | Path: `project_id: str, document_id: str` | `{id: str, project_id: str, title: str, content: str, template: str\|null, version: int, created_at: datetime, updated_at: datetime}` | 401, 404 |
+| PUT | `/api/v1/projects/{project_id}/documents/{document_id}` | Path: `project_id: str, document_id: str`<br>Body: `{title?: str, content?: str}` | `{id: str, ...updated_fields, version: int, updated_at: datetime}` | 400, 401, 404 |
+| GET | `/api/v1/projects/{project_id}/documents` | Path: `project_id: str`<br>Query: `search?: str, template?: str, limit?: int, offset?: int` | `{items: Document[], total: int}` | 401, 404 |
+| GET | `/api/v1/templates` | Query: `type?: str` | `{items: Template[], total: int}` | 401 |
+
+#### **Health & Métadonnées**
+
+| Méthode | Path | Paramètres | Réponse | Codes erreur |
+|---------|------|------------|---------|--------------|
+| GET | `/health` | - | `{status: "healthy", timestamp: datetime}` | - |
+| GET | `/api/v1/business-rules` | - | `{rules: BusinessRule[]}` | 401 |
+
+### **3. Liste des Tools MCP**
+
+Les tools MCP exposent les mêmes capacités que l'API REST mais avec des descriptions optimisées pour la compréhension par un LLM. Chaque tool dispose d'une docstring détaillée expliquant son usage et ses paramètres.
+
+#### **Projets**
+
+| Tool | Paramètres | Retour | Description LLM |
+|------|------------|--------|-----------------|
+| `create_project` | `name: str, description: str` | `Project` | Crée un nouveau projet pour organiser des epics et stories. Utilise ce tool au début d'une conversation pour initialiser un nouveau workspace. |
+| `list_projects` | `limit: int = 50` | `list[Project]` | Liste tous les projets accessibles. Utilise ce tool pour découvrir les projets existants avant de créer des stories. |
+| `get_project` | `project_id: str` | `Project` | Récupère les détails d'un projet spécifique par son identifiant. |
+
+#### **Epics**
+
+| Tool | Paramètres | Retour | Description LLM |
+|------|------------|--------|-----------------|
+| `create_epic` | `project_id: str, title: str, description: str, status: str = "backlog"` | `Epic` | Crée un epic (grande fonctionnalité) dans un projet. Un epic regroupe plusieurs stories liées. Exemple : "Migration vers Python 3.12". |
+| `get_epic` | `project_id: str, epic_id: str` | `Epic` | Récupère un epic spécifique avec tous ses détails. |
+| `update_epic` | `project_id: str, epic_id: str, title?: str, description?: str, status?: str` | `Epic` | Met à jour un epic existant. Utilise ce tool pour changer le statut ou affiner la description. |
+| `list_epics` | `project_id: str, status?: str, search?: str` | `list[Epic]` | Liste les epics d'un projet. Filtre par statut (backlog, in_progress, done) ou recherche par mot-clé dans les titres. |
+
+#### **Stories**
+
+| Tool | Paramètres | Retour | Description LLM |
+|------|------------|--------|-----------------|
+| `create_story` | `project_id: str, epic_id: str, title: str, description: str, story_points: int = 0, priority: str = "medium", assignee?: str` | `Story` | Crée une story (tâche utilisateur) dans un epic. Les story_points doivent être dans la suite de Fibonacci (0,1,2,3,5,8,13). La description doit inclure les critères d'acceptation. |
+| `get_story` | `project_id: str, story_id: str` | `Story` | Récupère une story avec son statut, estimation et assignation actuelle. |
+| `update_story` | `project_id: str, story_id: str, title?: str, description?: str, story_points?: int, priority?: str, assignee?: str` | `Story` | Met à jour les métadonnées d'une story. Attention : les story_points doivent respecter Fibonacci (BR-01). |
+| `update_story_status` | `project_id: str, story_id: str, status: str` | `Story` | Change le statut d'une story. Les transitions doivent respecter l'ordre : backlog → todo → in_progress → in_review → done (BR-02). |
+| `update_story_sprint` | `project_id: str, story_id: str, sprint_id?: str` | `Story` | Affecte ou retire une story d'un sprint. Une story ne peut être que dans un seul sprint actif à la fois (BR-03). |
+| `list_stories` | `project_id: str, status?: str, priority?: str, assignee?: str, sprint_id?: str, search?: str` | `list[Story]` | Liste et filtre les stories d'un projet. Utilise les filtres pour trouver les stories d'un sprint spécifique ou assignées à une personne. |
+
+#### **Sprints**
+
+| Tool | Paramètres | Retour | Description LLM |
+|------|------------|--------|-----------------|
+| `create_sprint` | `project_id: str, name: str, goal: str, start_date: date, end_date: date` | `Sprint` | Crée un nouveau sprint avec un objectif clair. Le sprint démarre en statut 'draft'. |
+| `activate_sprint` | `project_id: str, sprint_id: str` | `Sprint` | Active un sprint (passe de 'draft' à 'active'). Un seul sprint peut être actif à la fois dans un projet. |
+| `close_sprint` | `project_id: str, sprint_id: str` | `Sprint` | Clôture un sprint. ATTENTION : toutes les stories du sprint doivent être à l'état 'done' (BR-04), sinon l'opération échouera. |
+| `get_sprint` | `project_id: str, sprint_id: str` | `Sprint` | Récupère un sprint avec la liste complète de ses stories et leur progression. |
+| `list_sprints` | `project_id: str, status?: str` | `list[Sprint]` | Liste les sprints d'un projet, filtrés par statut (draft, active, closed). |
+
+#### **Tickets**
+
+| Tool | Paramètres | Retour | Description LLM |
+|------|------------|--------|-----------------|
+| `create_ticket` | `project_id: str, story_id: str, title: str, description: str, assignee?: str, priority: str = "medium"` | `Ticket` | Crée un ticket (sous-tâche technique) lié à une story. Utilise ce tool pour décomposer une story en tâches granulaires. |
+| `update_ticket` | `project_id: str, ticket_id: str, title?: str, description?: str, assignee?: str, priority?: str` | `Ticket` | Met à jour un ticket existant. |
+| `move_ticket` | `project_id: str, ticket_id: str, target_status: str` | `Ticket` | Déplace un ticket vers un nouveau statut (backlog → todo → in_progress → in_review → done). |
+| `assign_ticket` | `project_id: str, ticket_id: str, user_id: str` | `Ticket` | Assigne un ticket à un développeur spécifique. |
+| `delete_ticket` | `project_id: str, ticket_id: str` | `void` | Supprime (soft delete) un ticket. Attention : impossible si le ticket est en cours (in_progress ou in_review). |
+| `restore_ticket` | `project_id: str, ticket_id: str` | `Ticket` | Restaure un ticket archivé. |
+| `link_tickets` | `project_id: str, parent_id: str, child_id: str` | `void` | Crée une relation de dépendance entre deux tickets (parent bloque child). |
+| `get_ticket_history` | `project_id: str, ticket_id: str` | `list[HistoryEntry]` | Récupère l'historique complet des modifications d'un ticket (audit trail). |
+| `list_tickets` | `project_id: str, story_id?: str, status?: str, assignee?: str` | `list[Ticket]` | Liste les tickets avec filtrage. Utilise story_id pour voir toutes les sous-tâches d'une story. |
+
+#### **Commentaires**
+
+| Tool | Paramètres | Retour | Description LLM |
+|------|------------|--------|-----------------|
+| `add_comment_to_epic` | `project_id: str, epic_id: str, author: str, content: str` | `Comment` | Ajoute un commentaire à un epic. Utilise ce tool pour documenter des décisions ou poser des questions sur un epic. |
+| `add_comment_to_story` | `project_id: str, story_id: str, author: str, content: str` | `Comment` | Ajoute un commentaire à une story. Idéal pour clarifier des critères d'acceptation ou signaler des blocages. |
+| `list_epic_comments` | `project_id: str, epic_id: str` | `list[Comment]` | Liste tous les commentaires d'un epic dans l'ordre chronologique. |
+| `list_story_comments` | `project_id: str, story_id: str` | `list[Comment]` | Liste tous les commentaires d'une story dans l'ordre chronologique. |
+
+#### **Documents**
+
+| Tool | Paramètres | Retour | Description LLM |
+|------|------------|--------|-----------------|
+| `create_document` | `project_id: str, title: str, content: str, template?: str` | `Document` | Crée un document dans le projet. Si 'template' est spécifié (TDR, SPEC, RETRO, VISION), le contenu sera structuré selon ce template. |
+| `get_document` | `project_id: str, document_id: str` | `Document` | Récupère un document spécifique avec son contenu complet. |
+| `update_document` | `project_id: str, document_id: str, title?: str, content?: str` | `Document` | Met à jour un document (le numéro de version s'incrémente automatiquement). |
+| `list_documents` | `project_id: str, search?: str, template?: str` | `list[Document]` | Liste les documents d'un projet. Filtre par type de template ou recherche par mot-clé. |
+| `list_templates` | `type?: str` | `list[Template]` | Liste les templates disponibles (Technical Decision Record, Product Vision, Problem Statement, Sprint Retrospective). Utilise ce tool pour découvrir les structures de documents prédéfinies. |
+
+### **4. Justification Architecturale**
+
+**Choix : 1 service unique exposant REST + MCP**
+
+**Raison :**
+- **Cohérence de la logique métier :** Les règles BR-01 à BR-04 doivent être appliquées de manière identique qu'on passe par REST ou MCP. Un service unique garantit que le Moteur de Règles Métier est partagé.
+- **Simplicité de déploiement :** Un seul conteneur Cloud Run à maintenir, une seule base de données à connecter.
+- **Performance :** Pas de latence réseau entre un service MCP et un service REST.
+- **Coût :** Optimisation des ressources (un seul instance pool à scaler).
+
+**Architecture interne du service :**
+```
+src/
+├── main.py              # Point d'entrée FastAPI + MCP
+├── api/                 # Endpoints REST
+│   ├── projects.py
+│   ├── epics.py
+│   ├── stories.py
+│   └── ...
+├── mcp/                 # Tools MCP
+│   ├── server.py
+│   └── tools.py
+├── services/            # Logique métier partagée
+│   ├── story_service.py
+│   ├── sprint_service.py
+│   └── rules_engine.py
+├── models/              # Modèles Pydantic + SQLAlchemy
+└── db/                  # Connexion et migrations
+```
+
+**Trade-off accepté :**
+- Un service unique signifie que si le serveur MCP crash, l'API REST devient temporairement indisponible (et inversement). Cependant, dans le cadre d'un MVP et avec la supervision de Cloud Run (health checks + auto-restart), ce risque est acceptable.
+
+### **5. Contrat de Validation**
+
+#### **Validation par Entité**
+
+| Entité | Champ | Contrainte | Validation Pydantic | Validation SQL | Code erreur HTTP |
+|--------|-------|------------|---------------------|----------------|------------------|
+| **Project** | `name` | Longueur 3-200 caractères | `Field(min_length=3, max_length=200)` | `CHECK (LENGTH(name) BETWEEN 3 AND 200)` | 400 `NAME_TOO_SHORT/LONG` |
+| **Epic** | `title` | Longueur 5-300 caractères | `Field(min_length=5, max_length=300)` | `CHECK (LENGTH(title) >= 5)` | 400 `TITLE_TOO_SHORT/LONG` |
+| **Epic** | `status` | Valeurs autorisées | `Literal["backlog", "in_progress", "done"]` | `CHECK (status IN (...))` | 400 `INVALID_STATUS` |
+| **Story** | `title` | Longueur 5-300 caractères | `Field(min_length=5, max_length=300)` | `CHECK (LENGTH(title) >= 5)` | 400 `TITLE_TOO_SHORT/LONG` |
+| **Story** | `story_points` | Suite de Fibonacci (BR-01) | `Field(ge=0)` + validator custom | `CHECK (story_points IN (0,1,2,3,5,8,13))` | 422 `INVALID_STORY_POINTS` |
+| **Story** | `status` | Workflow ordonné (BR-02) | `Literal[...]` | `CHECK (status IN (...))` | 422 `INVALID_STATUS_TRANSITION` |
+| **Story** | `priority` | Valeurs autorisées | `Literal["low", "medium", "high", "critical"]` | `CHECK (priority IN (...))` | 400 `INVALID_PRIORITY` |
+| **Sprint** | `name` | Longueur 3-100 caractères | `Field(min_length=3, max_length=100)` | - | 400 `NAME_TOO_SHORT/LONG` |
+| **Sprint** | `end_date` | Après `start_date` | `@field_validator` | `CHECK (end_date > start_date)` | 400 `INVALID_DATE_RANGE` |
+| **Ticket** | `title` | Longueur 3-200 caractères | `Field(min_length=3, max_length=200)` | - | 400 `TITLE_TOO_SHORT/LONG` |
+| **Comment** | `content` | Longueur 1-5000 caractères | `Field(min_length=1, max_length=5000)` | - | 400 `CONTENT_TOO_LONG` |
+| **Document** | `title` | Longueur 3-500 caractères | `Field(min_length=3, max_length=500)` | - | 400 `TITLE_TOO_SHORT/LONG` |
+
+#### **Stratégie de Défense**
+
+**Couche 1 : Validation Pydantic (Point d'entrée)**
+- Validation des types, longueurs et formats
+- Conversion automatique des types (ex: `date` depuis ISO string)
+- Messages d'erreur explicites pour le client
+
+**Couche 2 : Logique Métier (Services)**
+- Validation des règles métier (BR-01 à BR-04)
+- Vérification des transitions de statuts
+- Contrôle d'unicité (ex: sprint actif unique)
+
+**Couche 3 : Base de Données (PostgreSQL)**
+- Contraintes `CHECK` pour garantir l'intégrité même en cas de bug applicatif
+- Index `UNIQUE` partiels (ex: `is_active = TRUE` pour stories dans sprints)
+- Foreign keys avec `ON DELETE CASCADE` ou `RESTRICT` selon le contexte
+
+**Partage entre REST et MCP :**
+- Les modèles Pydantic sont **réutilisés** pour la validation des inputs MCP
+- Les services métier sont **appelés identiquement** par les routes REST et les tools MCP
+- Le Moteur de Règles Métier est **unique et centralisé**
+
 ## 3.3 **Data Architecture**
 L'architecture de données repose sur un modèle relationnel PostgreSQL rigoureux. La validation des données est effectuée en profondeur : d'abord par des contraintes SQL natives (premier niveau), puis par Pydantic au niveau applicatif.
 
