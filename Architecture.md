@@ -42,3 +42,81 @@ Le système garantit l'intégrité des données via des règles strictes appliqu
 
 
 ---
+
+## 3.2 **Architecture Suggérée**
+
+### **1. SERVICES (Microservices/Modules)**
+
+#### **Services Cœur**
+
+**A. Service de Gestion des Stories**
+- **Responsabilités :**
+  - Opérations CRUD sur les Stories
+  - Estimation en story points (validation Fibonacci - BR-01)
+  - Application du workflow de statuts (BR-02)
+  - Logique d'assignation aux sprints (BR-03)
+- **Opérations clés :**
+  - `create_story()`
+  - `update_story()`
+  - `update_story_status()`
+  - `update_story_sprint()`
+  - `list_stories()`
+
+**B. Service de Gestion des Sprints**
+- **Responsabilités :**
+  - Cycle de vie des sprints (création, activation, clôture)
+  - Validation de clôture (BR-04 : toutes les stories doivent être done)
+  - Gestion de l'association Story-Sprint
+- **Opérations clés :**
+  - `create_sprint()`
+  - `activate_sprint()`
+  - `close_sprint()`
+  - `get_sprint_status()`
+
+**C. Service de Gestion des Tickets**
+- **Responsabilités :**
+  - Opérations CRUD sur les tickets individuels
+  - Déplacement de tickets entre sprints/colonnes
+  - Assignation et réassignation de tickets
+  - Gestion des dépendances entre tickets
+  -Archivage et suppression de tickets
+  - Historique des modifications
+- **Opérations clés :**
+  - `create_ticket(title, description, assignee, priority)`
+  - `update_ticket(id, fields)`
+  - `move_ticket(id, target_status)` → Valide transitions BR-02
+  - `assign_ticket(id, user_id)`
+  - `delete_ticket(id)` → Soft delete avec archivage
+  - `restore_ticket(id)` → Restauration depuis archive
+  - `link_tickets(parent_id, child_id)` → Gestion dépendances
+  - `get_ticket_history(id)` → Audit trail complet
+  - `search_tickets(filters)` → Recherche avancée
+- **Règles spécifiques :**
+  - Un ticket ne peut être supprimé que s'il est en statut `backlog` ou `todo`
+  - Le déplacement entre sprints nécessite validation BR-03
+  - L'historique est immuable (event sourcing)
+
+**D. Service de Documentation**
+- **Responsabilités :**
+  - Génération de documents basés sur templates (TDR, ADR, etc.)
+  - Versioning et stockage des documents
+  - Liaison documents-Stories/Sprints
+- **Opérations clés :**
+  - `create_document(template, context)`
+  - `list_templates()`
+  - `attach_document_to_story()`
+
+**E. Moteur de Règles Métier**
+- **Responsabilités :**
+  - Validation centralisée des règles BR-01 à BR-04
+  - Machine à états pour le workflow des stories et tickets
+  - Application des politiques
+- **Validations :**
+  - Validateur Fibonacci
+  - Validateur de transitions de statut
+  - Validateur d'assignation aux sprints
+  - Validateur de clôture de sprint
+  - Validateur de suppression de tickets
+
+---
+
