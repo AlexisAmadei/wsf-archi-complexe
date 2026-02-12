@@ -8,18 +8,18 @@ Gestionnaire de projet agile (type Jira) exposé via **API REST** (FastAPI) et *
 
 ```
 ┌──────────────┐       ┌──────────────────┐
-│  API FastAPI  │       │  Serveur MCP SSE │
-│  (port 8080)  │       │  (port 8001)     │
+│  API FastAPI │       │  Serveur MCP SSE │
+│  (port 8080) │       │  (port 8001)     │
 └──────┬───────┘       └───────┬──────────┘
        │                       │
        │   ┌───────────────┐   │
-       └──►│  Services      │◄──┘
-           │  métier (app/) │
+       └──►│  Services     │◄──┘
+           │  métier (app/)│
            └───────┬───────┘
                    │
            ┌───────▼───────┐
-           │  Cloud SQL     │
-           │  PostgreSQL    │
+           │  Cloud SQL    │
+           │  PostgreSQL   │
            └───────────────┘
 ```
 
@@ -102,25 +102,14 @@ gcloud builds submit --config=cloudbuild.yaml
 
 ## Configuration MCP Client
 
-### Cursor (`.vscode/settings.json`)
+### Vscode (`.vscode/settings.json`)
 
 ```json
 {
-  "mcpServers": {
-    "llm-task-manager": {
-      "url": "https://llm-task-manager-mcp-<ID>.europe-west1.run.app/sse"
-    }
-  }
-}
-```
-
-### Claude Desktop (`claude_desktop_config.json`)
-
-```json
-{
-  "mcpServers": {
-    "llm-task-manager": {
-      "url": "https://llm-task-manager-mcp-<ID>.europe-west1.run.app/sse"
+  "servers": {
+    "llmTaskManager": {
+      "type": "sse",
+      "url": "https://llm-task-manager-mcp-1086023562571.europe-west1.run.app/sse"
     }
   }
 }
