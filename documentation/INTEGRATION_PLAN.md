@@ -22,15 +22,39 @@ Ce document présente le plan détaillé de réalisation du projet LLM Task Mana
 - python-jose[cryptography], passlib[bcrypt] (JWT)
 - uvicorn (serveur ASGI)
 
-### Étape 1.2 : Configuration de la base de données locale
-- Configurer PostgreSQL en local (Docker Compose pour le dev)
+### Étape 1.2 : Configuration de Cloud SQL
+- Provisionner une instance Cloud SQL PostgreSQL sur GCP
+- Configurer Cloud SQL Proxy pour le développement
 - Créer le fichier `app/database.py` avec la connexion asyncpg
 - Initialiser Alembic pour les migrations dans `alembic/`
 - Configurer `app/config.py` pour gérer les variables d'environnement
+- Configurer Secret Manager pour les secrets
+
+**Provisionnement Cloud SQL** :
+```bash
+gcloud sql instances create llm-task-manager-db \
+  --database-version=POSTGRES_15 \
+  --tier=db-f1-micro \
+  --region=europe-west1 \
+  --storage-auto-increase \
+  --backup-start-time=03:00
+
+gcloud sql databases create llm_task_manager \
+  --instance=llm-task-manager-db
+
+gcloud sql users create app_user \
+  --instance=llm-task-manager-db \
+  --password=<strong-password>
+```
+
+**Configuration Cloud SQL Proxy pour le développement** :
+```bash
+cloud-sql-proxy --port 5432 <PROJECT_ID>:europe-west1:llm-task-manager-db &
+```
 
 **Variables d'environnement requises** :
-- `DATABASE_URL` : URL de connexion PostgreSQL
-- `JWT_SECRET_KEY` : Secret pour les tokens JWT
+- `DATABASE_URL` : URL de connexion Cloud SQL via proxy ou socket Unix
+- `JWT_SECRET_KEY` : Secret stocké dans Secret Manager
 - `JWT_ALGORITHM` : Algorithme JWT (HS256)
 - `ENVIRONMENT` : dev/staging/production
 
@@ -77,11 +101,20 @@ Créer les schémas de validation dans `app/schemas/` :
 ### Étape 2.3 : Migrations initiales
 - Générer la migration Alembic pour créer toutes les tables
 - Créer les indexes (performance sur les recherches)
+- Exécuter les migrations via Cloud SQL Proxy
 - Créer le script `scripts/seed_templates.py` pour les templates de documents :
   - Problem Statement
   - Product Vision
   - Technical Decision Record
   - Sprint Retrospective
+
+**Exécution des migrations** :
+```bash
+# Via Cloud SQL Proxy
+export DATABASE_URL="postgresql+asyncpg://app_user:PASSWORD@localhost/llm_task_manager"
+alembic upgrade head
+python scripts/seed_templates.py
+```
 
 ---
 
@@ -188,7 +221,7 @@ app.include_router(documents.router, prefix="/api/v1/documents", tags=["document
 ```
 
 ### Étape 4.2 : Endpoints REST
-Créer les routers dans `app/api/` :
+Créer les routers dans `app/api/`. Tous les endpoints seront testés via Cloud Run une fois déployés :
 
 **`health.py`** : Endpoint `/health`
 - GET `/health` : Vérifier l'état du service et la connexion DB
@@ -378,11 +411,11 @@ async def create_story(
 - BR-04 : Clôture de sprint avec stories en cours
 
 ### Étape 6.2 : Tests d'intégration
-Créer les tests dans `tests/integration/` :
+Créer les tests dans `tests/integration/`. Les tests s'exécuteront dans Cloud Build contre une instance Cloud SQL de test :
 
 **`test_api_crud.py`** :
 - Cycles CRUD complets via REST API
-- Tests de tous les endpoints avec DB réelle (testcontainers ou SQLite)
+- Tests de tous les endpoints avec Cloud SQL de test
 
 **`test_story_workflow.py`** :
 - Cycle de vie complet d'une story : backlog → todo → in_progress → in_review → done
@@ -398,31 +431,13 @@ Créer les tests dans `tests/integration/` :
 
 ## Phase 7 : Déploiement GCP
 
-### Étape 7.1 : Configuration Cloud SQL
-**Provisionnement** :
+### Étape 7.1 : Configuration Cloud SQL (déjà fait en Phase 1)
+**Vérification de l'instance** :
 ```bash
-gcloud sql instances create llm-task-manager-db \
-  --database-version=POSTGRES_15 \
-  --tier=db-f1-micro \
-  --region=europe-west1 \
-  --storage-auto-increase \
-  --backup-start-time=03:00
+gcloud sql instances describe llm-task-manager-db
 ```
 
-**Créer la base de données** :
-```bash
-gcloud sql databases create llm_task_manager \
-  --instance=llm-task-manager-db
-```
-
-**Créer un utilisateur** :
-```bash
-gcloud sql users create app_user \
-  --instance=llm-task-manager-db \
-  --password=<strong-password>
-```
-
-**Tester la connexion via Cloud SQL Proxy** :
+**Vérification de la connexion** :
 ```bash
 cloud-sql-proxy --port 5432 <PROJECT_ID>:europe-west1:llm-task-manager-db &
 psql -h localhost -U app_user -d llm_task_manager
@@ -475,10 +490,9 @@ Dockerfile
 cloudbuild.yaml
 ```
 
-**Tester le build local** :
+**Tester le build via Cloud Build** :
 ```bash
-docker build -t llm-task-manager:local .
-docker run -p 8080:8080 -e DATABASE_URL=... llm-task-manager:local
+gcloud builds submit --config=cloudbuild.yaml .
 ```
 
 ### Étape 7.3 : Pipeline Cloud Build
@@ -615,43 +629,54 @@ python scripts/seed_templates.py
 ### Étape 8.1 : Documentation
 Compléter le `README.md` avec :
 
-**Setup local** :
+**Setup et déploiement GCP** :
 ```bash
 # Cloner le repo
 git clone <repo-url>
 cd llm-task-manager
 
-# Installer les dépendances avec uv
-uv pip install -e .
+# Configurer GCP
+gcloud config set project <PROJECT_ID>
 
-# Lancer PostgreSQL avec Docker
-docker-compose up -d
+# Provisionner Cloud SQL (si pas déjà fait)
+gcloud sql instances create llm-task-manager-db \
+  --database-version=POSTGRES_15 \
+  --tier=db-f1-micro \
+  --region=europe-west1
 
-# Exécuter les migrations
+gcloud sql databases create llm_task_manager \
+  --instance=llm-task-manager-db
+
+# Exécuter les migrations via Cloud SQL Proxy
+cloud-sql-proxy --port 5432 <PROJECT_ID>:europe-west1:llm-task-manager-db &
+export DATABASE_URL="postgresql+asyncpg://app_user:PASSWORD@localhost/llm_task_manager"
 alembic upgrade head
-
-# Seed les templates
 python scripts/seed_templates.py
 
-# Lancer le serveur
-uvicorn app.main:app --reload
+# Déployer sur Cloud Run
+gcloud builds submit --config=cloudbuild.yaml
 ```
 
-**Variables d'environnement** :
-- `DATABASE_URL` : `postgresql+asyncpg://user:pass@localhost/db`
-- `JWT_SECRET_KEY` : Secret pour JWT
+**Configuration Secret Manager** :
+- `DATABASE_URL` : Stocké dans Secret Manager
+- `JWT_SECRET_KEY` : Stocké dans Secret Manager
 - `JWT_ALGORITHM` : `HS256`
-- `ENVIRONMENT` : `dev`
+- `ENVIRONMENT` : `production`
 
 **Exemples d'utilisation REST** :
 ```bash
+# Obtenir l'URL du service
+SERVICE_URL=$(gcloud run services describe llm-task-manager \
+  --region=europe-west1 \
+  --format='value(status.url)')
+
 # Créer un projet
-curl -X POST http://localhost:8000/api/v1/projects \
+curl -X POST $SERVICE_URL/api/v1/projects \
   -H "Content-Type: application/json" \
   -d '{"name": "My Project", "description": "Test project"}'
 
 # Créer un epic
-curl -X POST http://localhost:8000/api/v1/epics \
+curl -X POST $SERVICE_URL/api/v1/epics \
   -H "Content-Type: application/json" \
   -d '{"project_id": "proj_123", "title": "User Auth", "description": "Implement authentication"}'
 ```
@@ -681,7 +706,7 @@ Contenu :
 - 2 sprints : 1 actif, 1 terminé
 - Quelques commentaires et documents
 
-**Scénarios de démonstration REST** :
+**Scénarios de démonstration REST** (via Cloud Run URL) :
 1. Créer un projet et un epic
 2. Créer plusieurs stories avec différentes priorités
 3. Transition d'une story à travers les statuts
@@ -689,6 +714,13 @@ Contenu :
 5. Assigner des stories au sprint
 6. Ajouter des commentaires
 7. Créer un document depuis un template
+
+Toutes les requêtes utilisent l'URL du service Cloud Run :
+```bash
+SERVICE_URL=$(gcloud run services describe llm-task-manager \
+  --region=europe-west1 \
+  --format='value(status.url)')
+```
 
 **Scénarios de démonstration MCP** :
 Depuis Claude Desktop ou Cursor :
@@ -775,24 +807,32 @@ Depuis Claude Desktop ou Cursor :
 ## Commandes rapides
 
 ```bash
-# Setup local
-uv pip install -e .
-docker-compose up -d
+# Configuration initiale GCP
+gcloud config set project <PROJECT_ID>
+
+# Provisionner Cloud SQL
+gcloud sql instances create llm-task-manager-db \
+  --database-version=POSTGRES_15 \
+  --tier=db-f1-micro \
+  --region=europe-west1
+
+# Migrations via Cloud SQL Proxy
+cloud-sql-proxy --port 5432 <PROJECT_ID>:europe-west1:llm-task-manager-db &
+export DATABASE_URL="postgresql+asyncpg://app_user:PASSWORD@localhost/llm_task_manager"
 alembic upgrade head
 python scripts/seed_templates.py
-uvicorn app.main:app --reload
 
-# Tests
-pytest tests/ -v --cov=app
-
-# Build Docker
-docker build -t llm-task-manager .
-
-# Déploiement GCP
+# Déploiement sur Cloud Run
 gcloud builds submit --config=cloudbuild.yaml
 
 # Vérifier le service
-curl https://llm-task-manager-xyz.run.app/health
+SERVICE_URL=$(gcloud run services describe llm-task-manager \
+  --region=europe-west1 \
+  --format='value(status.url)')
+curl $SERVICE_URL/health
+
+# Tests (exécutés dans Cloud Build)
+# Les tests s'exécutent automatiquement lors du déploiement
 ```
 
 ---
