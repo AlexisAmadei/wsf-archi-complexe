@@ -8,6 +8,8 @@ Handles document management with template support for:
 - Sprint Retrospective
 """
 
+from __future__ import annotations
+
 import uuid
 from typing import Optional
 

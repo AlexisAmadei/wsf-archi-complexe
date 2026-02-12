@@ -4,6 +4,8 @@ Epic service implementing business logic for epics.
 Handles CRUD operations: create, get, update, list, search, filter by status.
 """
 
+from __future__ import annotations
+
 import uuid
 from typing import Optional
 

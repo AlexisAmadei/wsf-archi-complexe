@@ -1,0 +1,147 @@
+steps:
+  # =====================================================
+  # 1. Build API image (FastAPI REST)
+  # =====================================================
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-api'
+    args:
+      - 'build'
+      - '--target'
+      - 'api'
+      - '-t'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/llm-task-manager/api:$COMMIT_SHA'
+      - '-t'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/llm-task-manager/api:latest'
+      - '.'
+    dir: 'llm-task-manager'
+
+  # =====================================================
+  # 2. Build MCP image (standalone MCP server)
+  # =====================================================
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-mcp'
+    args:
+      - 'build'
+      - '--target'
+      - 'mcp'
+      - '-t'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/llm-task-manager/mcp:$COMMIT_SHA'
+      - '-t'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/llm-task-manager/mcp:latest'
+      - '.'
+    dir: 'llm-task-manager'
+    waitFor: ['-']  # Run in parallel with API build
+
+  # =====================================================
+  # 3. Run tests against API image
+  # =====================================================
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'test'
+    args:
+      - 'run'
+      - '--rm'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/llm-task-manager/api:$COMMIT_SHA'
+      - 'pytest'
+      - 'tests/unit/'
+      - '-v'
+      - '--tb=short'
+    waitFor: ['build-api']
+
+  # =====================================================
+  # 4. Push images to Artifact Registry
+  # =====================================================
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-api'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/llm-task-manager/api'
+    waitFor: ['test']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-mcp'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/llm-task-manager/mcp'
+    waitFor: ['test', 'build-mcp']
+
+  # =====================================================
+  # 5. Deploy API on Cloud Run
+  # =====================================================
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-api'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'llm-task-manager-api'
+      - '--image'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/llm-task-manager/api:$COMMIT_SHA'
+      - '--region'
+      - 'europe-west1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8080'
+      - '--set-env-vars'
+      - 'ENVIRONMENT=production'
+      - '--set-secrets'
+      - 'DATABASE_URL=llm-task-manager-db-url:latest,JWT_SECRET_KEY=jwt-secret:latest'
+      - '--add-cloudsql-instances'
+      - '$PROJECT_ID:europe-west1:llm-task-manager-db'
+      - '--memory'
+      - '512Mi'
+      - '--cpu'
+      - '1'
+      - '--min-instances'
+      - '0'
+      - '--max-instances'
+      - '3'
+    waitFor: ['push-api']
+
+  # =====================================================
+  # 6. Deploy MCP on Cloud Run (separate service)
+  # =====================================================
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-mcp'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'llm-task-manager-mcp'
+      - '--image'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/llm-task-manager/mcp:$COMMIT_SHA'
+      - '--region'
+      - 'europe-west1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8001'
+      - '--set-env-vars'
+      - 'ENVIRONMENT=production'
+      - '--set-secrets'
+      - 'DATABASE_URL=llm-task-manager-db-url:latest,JWT_SECRET_KEY=jwt-secret:latest'
+      - '--add-cloudsql-instances'
+      - '$PROJECT_ID:europe-west1:llm-task-manager-db'
+      - '--memory'
+      - '512Mi'
+      - '--cpu'
+      - '1'
+      - '--min-instances'
+      - '0'
+      - '--max-instances'
+      - '3'
+      - '--session-affinity'
+    waitFor: ['push-mcp']
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+images:
+  - 'europe-west1-docker.pkg.dev/$PROJECT_ID/llm-task-manager/api:$COMMIT_SHA'
+  - 'europe-west1-docker.pkg.dev/$PROJECT_ID/llm-task-manager/api:latest'
+  - 'europe-west1-docker.pkg.dev/$PROJECT_ID/llm-task-manager/mcp:$COMMIT_SHA'
+  - 'europe-west1-docker.pkg.dev/$PROJECT_ID/llm-task-manager/mcp:latest'
