@@ -4,17 +4,20 @@ FastAPI application entrypoint.
 Configures middleware, exception handlers, and routes.
 """
 
+import os
 from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api import comments, documents, epics, health, projects, sprints, stories
 from app.config import settings
 from app.database import close_db, init_db
 from app.exceptions import BusinessRuleViolation, EntityNotFound, NotFoundError, ValidationError
+from app.security import verify_token
 
 
 @asynccontextmanager
@@ -33,6 +36,63 @@ app = FastAPI(
     description="Task management API with MCP integration for LLM-powered project management.",
     lifespan=lifespan,
 )
+
+
+# --- JWT Authentication Middleware ---
+
+class JWTAuthMiddleware(BaseHTTPMiddleware):
+    """
+    JWT authentication middleware for REST API.
+
+    Validates Bearer tokens on all requests except health checks.
+    Can be disabled via API_DISABLE_AUTH environment variable (dev only).
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        # Skip auth for health checks
+        if request.url.path in ["/health", "/", "/docs", "/openapi.json", "/redoc"]:
+            return await call_next(request)
+
+        # Skip auth if disabled (dev only)
+        if os.environ.get("API_DISABLE_AUTH", "false").lower() == "true":
+            return await call_next(request)
+
+        # OPTIONS requests don't need auth
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
+        # Verify JWT token
+        auth_header = request.headers.get("Authorization")
+
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": "Missing or invalid Authorization header. Use 'Bearer <token>'"},
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        token = auth_header.replace("Bearer ", "")
+        payload = verify_token(token)
+
+        if not payload:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": "Invalid or expired token"},
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # Store user info in request state
+        request.state.user = {
+            "user_id": payload.get("sub"),
+            "role": payload.get("role", "contributor"),
+            "permissions": payload.get("permissions", []),
+        }
+
+        return await call_next(request)
+
+
+# Add JWT middleware
+app.add_middleware(JWTAuthMiddleware)
 
 # --- CORS Middleware ---
 app.add_middleware(

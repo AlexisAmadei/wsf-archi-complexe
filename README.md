@@ -38,9 +38,9 @@ Secrets (Secret Manager):
 ```
 
 **Authentification :**
-- API REST : JWT Bearer (optionnel, pour futures fonctionnalités)
+- API REST : JWT Bearer **obligatoire** via header Authorization
 - Serveur MCP : JWT Bearer **obligatoire** via header Authorization
-- Validation : `AuthMiddleware` → `verify_jwt_token()` → permissions par rôle
+- Validation : middleware → `verify_token()` → permissions par rôle
 
 Deux processus indépendants, mêmes services, même base de données.
 
@@ -222,7 +222,8 @@ cd llm-task-manager
 source .venv/bin/activate
 
 # Désactiver l'authentification JWT
-export MCP_DISABLE_AUTH=true
+export MCP_DISABLE_AUTH=true     # Pour MCP Server
+export API_DISABLE_AUTH=true     # Pour API REST
 export DATABASE_URL="postgresql+asyncpg://user:pass@localhost/llm_task_manager"
 
 # MCP Server (stdio, pour tests locaux)
@@ -232,13 +233,13 @@ python -m mcp_server
 python -m mcp_server --transport sse
 ```
 
-⚠️ **Ne JAMAIS utiliser `MCP_DISABLE_AUTH=true` en production !**
+⚠️ **Ne JAMAIS utiliser `MCP_DISABLE_AUTH=true` ou `API_DISABLE_AUTH=true` en production !**
 
 ---
 
 ## Test de l'authentification JWT
 
-### Vérifier que l'authentification fonctionne
+### Test du serveur MCP
 
 ```bash
 # Sans token (doit retourner 401)
@@ -251,6 +252,31 @@ curl -H "Authorization: Bearer VOTRE_TOKEN_JWT" \
 # Générer un token de test
 cd llm-task-manager
 .venv/bin/python scripts/generate_mcp_token.py --user-id "test@example.com" --role admin --expires 1
+```
+
+### Test de l'API REST
+
+```bash
+# 1. Générer un token
+cd llm-task-manager
+source .venv/bin/activate
+TOKEN=$(python scripts/generate_mcp_token.py --user-id "test@example.com" --role admin --expires 1 | grep "Token:" | cut -d' ' -f2)
+
+# 2. Test sans token (doit retourner 401)
+curl https://llm-task-manager-api-1086023562571.europe-west1.run.app/api/v1/projects
+
+# 3. Test avec token valide (doit retourner 200)
+curl -H "Authorization: Bearer $TOKEN" \
+  https://llm-task-manager-api-1086023562571.europe-west1.run.app/api/v1/projects
+
+# 4. Créer un projet avec authentification
+curl -X POST https://llm-task-manager-api-1086023562571.europe-west1.run.app/api/v1/projects \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Test Project", "description": "Testing with JWT"}'
+
+# 5. Health check (pas d'auth requise)
+curl https://llm-task-manager-api-1086023562571.europe-west1.run.app/health
 ```
 
 ### Test des permissions par rôle
@@ -280,6 +306,35 @@ python scripts/generate_mcp_token.py --user-id "viewer@example.com" --role viewe
 
 ## Implémentations récentes
 
+### JWT Bearer Authentication pour API REST (Février 2026)
+
+**Contexte :** L'API REST nécessite la même authentification sécurisée que le serveur MCP.
+
+**Implémentation :**
+- Middleware `JWTAuthMiddleware` dans `app/main.py` validant les tokens JWT
+- Dependency `get_current_user()` dans `app/api/deps.py` pour injection de l'utilisateur
+- Utilise la même fonction `verify_token()` que le serveur MCP
+- Même système de rôles et permissions (admin, contributor, viewer)
+
+**Routes publiques (sans auth) :**
+- `/health` : Health check
+- `/` : Root endpoint
+- `/docs` : API documentation (Swagger UI)
+- `/openapi.json` : OpenAPI schema
+- `/redoc` : ReDoc documentation
+
+**Toutes les autres routes** (`/api/v1/*`) **requièrent un JWT Bearer token**.
+
+**Variable d'environnement :**
+- `API_DISABLE_AUTH=true` : Désactive l'auth en développement local (⚠️ JAMAIS en production)
+
+**Fichiers modifiés :**
+- `app/main.py` : Ajout du middleware JWT
+- `app/api/deps.py` : Ajout de la dependency `get_current_user`
+- `README.md` : Documentation des tests API avec JWT
+
+---
+
 ### JWT Bearer Authentication pour MCP (Février 2026)
 
 **Contexte :** Le serveur MCP nécessite une authentification sécurisée pour les déploiements en production.
@@ -292,7 +347,7 @@ python scripts/generate_mcp_token.py --user-id "viewer@example.com" --role viewe
 
 **Rôles et permissions :**
 - **Admin** : CRUD complet sur toutes les ressources
-- **Contributor** : Lecture + création/mise à jour des stories et commentaires  
+- **Contributor** : Lecture + création/mise à jour des stories et commentaires
 - **Viewer** : Lecture seule
 
 **Fichiers modifiés :**
