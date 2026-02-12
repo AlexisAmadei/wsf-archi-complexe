@@ -1,0 +1,53 @@
+steps:
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/llm-task-manager/api:latest'
+      - '.'
+
+  # Push to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/llm-task-manager/api:latest'
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'llm-task-manager'
+      - '--image'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/llm-task-manager/api:latest'
+      - '--region'
+      - 'europe-west1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'ENVIRONMENT=production,DEBUG=false'
+      - '--set-secrets'
+      - 'DATABASE_URL=llm-task-manager-db-url:latest,JWT_SECRET_KEY=jwt-secret:latest'
+      - '--add-cloudsql-instances'
+      - 'wsf-archi-tpfinal:europe-west1:llm-task-manager-db'
+      - '--port'
+      - '8080'
+      - '--memory'
+      - '512Mi'
+      - '--cpu'
+      - '1'
+      - '--max-instances'
+      - '10'
+      - '--timeout'
+      - '300'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+images:
+  - 'europe-west1-docker.pkg.dev/$PROJECT_ID/llm-task-manager/api:latest'
+
+
