@@ -13,6 +13,11 @@ class EntityNotFound(Exception):
     pass
 
 
+class NotFoundError(EntityNotFound):
+    """Alias for EntityNotFound for convenience."""
+    pass
+
+
 class ValidationError(Exception):
     """Exception raised when validation fails."""
     pass
