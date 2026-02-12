@@ -347,16 +347,22 @@ La sécurité du système repose sur une approche "Zero Trust" entre les clients
 
 **B. MCP Server**
 - **Transport :** Via SSE (Server-Sent Events) sur HTTP
-- **Justification :** Contrairement au mode stdio (local), le mode SSE est nécessaire pour un déploiement Cloud Run. La sécurité est alignée sur l'API REST : le client MCP doit passer un `Authorization: Bearer <JWT>` dans les headers de la connexion initiale
+- **Authentification :** Le client MCP doit passer un `Authorization: Bearer <JWT>` dans les headers de la connexion initiale
+- **Impersonation :** L'agent MCP agit **au nom de l'utilisateur** via le JWT. Il hérite des permissions de l'utilisateur authentifié et ne peut pas faire plus que ce que l'humain qui utilise l'agent a le droit de faire
+- **Justification :** Contrairement au mode stdio (local), le mode SSE est nécessaire pour un déploiement Cloud Run. La sécurité est alignée sur l'API REST avec validation des permissions basée sur le JWT
 
 ### **2. Matrice de Permissions (RBAC)**
 
-| Entité | Rôle : Admin (Léa) | Rôle : Contributeur (Sarah) | Rôle : Agent MCP |
-|--------|-------------------|----------------------------|------------------|
-| **Projets/Sprints** | Full CRUD + Clôture | Lecture seule | Lecture seule |
-| **Stories/Tickets** | Full CRUD | Création / Update | CRUD (selon contexte) |
-| **Documents** | Full CRUD | Création / Lecture | Création (Template) |
-| **Configuration** | Gestion des clés | Interdit | Interdit |
+**Principe d'Impersonation :** L'agent MCP hérite des permissions de l'utilisateur authentifié via le JWT. Il agit au nom de l'utilisateur et ne peut pas dépasser les droits de celui-ci.
+
+| Entité | Rôle : Admin (Léa) | Rôle : Contributeur (Sarah) | Agent MCP (via JWT) |
+|--------|-------------------|----------------------------|---------------------|
+| **Projets/Sprints** | Full CRUD + Clôture | Lecture seule | **Hérite des droits de l'utilisateur** |
+| **Stories/Tickets** | Full CRUD | Création / Update | **CRUD selon les permissions de l'utilisateur** |
+| **Documents** | Full CRUD | Création / Lecture | **Création (Template) selon les permissions** |
+| **Configuration** | Gestion des clés | Interdit | **Interdit (même pour Admin)** |
+
+**Note :** L'agent MCP dispose de droits CRUD complets, mais uniquement dans le cadre des permissions de l'utilisateur authentifié. Un agent connecté avec le JWT d'un Contributeur ne pourra pas effectuer d'actions réservées aux Admins.
 
 ### **3. Mesures de Protection et Défense en Profondeur**
 
