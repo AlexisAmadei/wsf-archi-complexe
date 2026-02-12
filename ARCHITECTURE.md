@@ -201,6 +201,8 @@ graph TB
 
 ### **2. Liste des Endpoints REST**
 
+> **Note de conception :** L'API utilise des routes **plates** (flat routes) plutôt que des routes imbriquées (ex: `/api/v1/stories` au lieu de `/api/v1/projects/{project_id}/epics/{epic_id}/stories`). Ce choix simplifie les URLs, réduit le couplage entre les ressources et facilite l'utilisation par les clients (REST et MCP). Les relations parent-enfant sont exprimées via des query parameters ou des champs dans le body de la requête.
+
 #### **Projets**
 
 | Méthode | Path | Paramètres | Réponse | Codes erreur |
@@ -213,64 +215,52 @@ graph TB
 
 | Méthode | Path | Paramètres | Réponse | Codes erreur |
 |---------|------|------------|---------|--------------|
-| POST | `/api/v1/projects/{project_id}/epics` | Path: `project_id: str`<br>Body: `{title: str, description: str, status?: str}` | `{id: str, project_id: str, title: str, description: str, status: str, created_at: datetime}` | 400, 401, 404 |
-| GET | `/api/v1/projects/{project_id}/epics/{epic_id}` | Path: `project_id: str, epic_id: str` | `{id: str, project_id: str, title: str, description: str, status: str, created_at: datetime, updated_at: datetime}` | 401, 404 |
-| PUT | `/api/v1/projects/{project_id}/epics/{epic_id}` | Path: `project_id: str, epic_id: str`<br>Body: `{title?: str, description?: str, status?: str}` | `{id: str, ...updated_fields, updated_at: datetime}` | 400, 401, 404 |
-| GET | `/api/v1/projects/{project_id}/epics` | Path: `project_id: str`<br>Query: `status?: str, search?: str, limit?: int, offset?: int` | `{items: Epic[], total: int}` | 401, 404 |
+| POST | `/api/v1/epics` | Body: `{project_id: str, title: str, description?: str}` | `{id: str, project_id: str, title: str, description: str, status: str, created_at: datetime}` | 400, 401 |
+| GET | `/api/v1/epics` | Query: `project_id?: str, status?: str, limit?: int, offset?: int` | `{items: Epic[], total: int}` | 401 |
+| GET | `/api/v1/epics/search` | Query: `q: str` | `{items: Epic[]}` | 401 |
+| GET | `/api/v1/epics/{epic_id}` | Path: `epic_id: str` | `{id: str, project_id: str, title: str, description: str, status: str, created_at: datetime, updated_at: datetime}` | 401, 404 |
+| PATCH | `/api/v1/epics/{epic_id}` | Path: `epic_id: str`<br>Body: `{title?: str, description?: str, status?: str}` | `{id: str, ...updated_fields, updated_at: datetime}` | 400, 401, 404 |
 
 #### **Stories**
 
 | Méthode | Path | Paramètres | Réponse | Codes erreur |
 |---------|------|------------|---------|--------------|
-| POST | `/api/v1/projects/{project_id}/epics/{epic_id}/stories` | Path: `project_id: str, epic_id: str`<br>Body: `{title: str, description: str, story_points?: int, priority?: str, assignee?: str}` | `{id: str, epic_id: str, title: str, description: str, story_points: int, priority: str, status: str, assignee: str\|null, created_at: datetime}` | 400, 401, 404, 422 (BR-01) |
-| GET | `/api/v1/projects/{project_id}/stories/{story_id}` | Path: `project_id: str, story_id: str` | `{id: str, epic_id: str, title: str, description: str, story_points: int, priority: str, status: str, assignee: str\|null, sprint_id: str\|null, created_at: datetime, updated_at: datetime}` | 401, 404 |
-| PUT | `/api/v1/projects/{project_id}/stories/{story_id}` | Path: `project_id: str, story_id: str`<br>Body: `{title?: str, description?: str, story_points?: int, priority?: str, assignee?: str}` | `{id: str, ...updated_fields, updated_at: datetime}` | 400, 401, 404, 422 (BR-01) |
-| PATCH | `/api/v1/projects/{project_id}/stories/{story_id}/status` | Path: `project_id: str, story_id: str`<br>Body: `{status: str}` | `{id: str, status: str, updated_at: datetime}` | 401, 404, 422 (BR-02: `INVALID_STATUS_TRANSITION`) |
-| PATCH | `/api/v1/projects/{project_id}/stories/{story_id}/sprint` | Path: `project_id: str, story_id: str`<br>Body: `{sprint_id: str\|null}` | `{id: str, sprint_id: str\|null, updated_at: datetime}` | 401, 404, 422 (BR-03: `STORY_ALREADY_IN_ACTIVE_SPRINT`) |
-| GET | `/api/v1/projects/{project_id}/stories` | Path: `project_id: str`<br>Query: `status?: str, priority?: str, assignee?: str, sprint_id?: str, search?: str, limit?: int, offset?: int` | `{items: Story[], total: int}` | 401, 404 |
+| POST | `/api/v1/stories` | Body: `{epic_id: str, title: str, description?: str, story_points?: int, priority?: str, assignee?: str}` | `{id: str, epic_id: str, title: str, description: str, story_points: int, priority: str, status: str, assignee: str\|null, created_at: datetime}` | 400, 401, 422 (BR-01) |
+| GET | `/api/v1/stories` | Query: `epic_id?: str, status?: str, priority?: str, assignee?: str, sprint_id?: str, limit?: int, offset?: int` | `{items: Story[], total: int}` | 401 |
+| GET | `/api/v1/stories/search` | Query: `q: str` | `{items: Story[]}` | 401 |
+| GET | `/api/v1/stories/{story_id}` | Path: `story_id: str` | `{id: str, epic_id: str, title: str, description: str, story_points: int, priority: str, status: str, assignee: str\|null, sprint_id: str\|null, created_at: datetime, updated_at: datetime}` | 401, 404 |
+| PATCH | `/api/v1/stories/{story_id}` | Path: `story_id: str`<br>Body: `{title?: str, description?: str, story_points?: int, priority?: str, assignee?: str}` | `{id: str, ...updated_fields, updated_at: datetime}` | 400, 401, 404, 422 (BR-01) |
+| POST | `/api/v1/stories/{story_id}/transition` | Path: `story_id: str`<br>Body: `{status: str}` | `{id: str, status: str, updated_at: datetime}` | 401, 404, 422 (BR-02: `INVALID_STATUS_TRANSITION`) |
 
 #### **Sprints**
 
 | Méthode | Path | Paramètres | Réponse | Codes erreur |
 |---------|------|------------|---------|--------------|
-| POST | `/api/v1/projects/{project_id}/sprints` | Path: `project_id: str`<br>Body: `{name: str, goal: str, start_date: date, end_date: date}` | `{id: str, project_id: str, name: str, goal: str, status: str, start_date: date, end_date: date, created_at: datetime}` | 400, 401, 404 |
-| POST | `/api/v1/projects/{project_id}/sprints/{sprint_id}/activate` | Path: `project_id: str, sprint_id: str` | `{id: str, status: str, activated_at: datetime}` | 401, 404, 422 |
-| POST | `/api/v1/projects/{project_id}/sprints/{sprint_id}/close` | Path: `project_id: str, sprint_id: str` | `{id: str, status: str, closed_at: datetime}` | 401, 404, 422 (BR-04: `SPRINT_HAS_INCOMPLETE_STORIES`) |
-| GET | `/api/v1/projects/{project_id}/sprints/{sprint_id}` | Path: `project_id: str, sprint_id: str` | `{id: str, project_id: str, name: str, goal: str, status: str, start_date: date, end_date: date, stories: Story[], created_at: datetime}` | 401, 404 |
-| GET | `/api/v1/projects/{project_id}/sprints` | Path: `project_id: str`<br>Query: `status?: str, limit?: int, offset?: int` | `{items: Sprint[], total: int}` | 401, 404 |
-
-#### **Tickets**
-
-| Méthode | Path | Paramètres | Réponse | Codes erreur |
-|---------|------|------------|---------|--------------|
-| POST | `/api/v1/projects/{project_id}/stories/{story_id}/tickets` | Path: `project_id: str, story_id: str`<br>Body: `{title: str, description: str, assignee?: str, priority?: str}` | `{id: str, story_id: str, title: str, description: str, assignee: str\|null, priority: str, status: str, created_at: datetime}` | 400, 401, 404 |
-| PUT | `/api/v1/projects/{project_id}/tickets/{ticket_id}` | Path: `project_id: str, ticket_id: str`<br>Body: `{title?: str, description?: str, assignee?: str, priority?: str}` | `{id: str, ...updated_fields, updated_at: datetime}` | 400, 401, 404 |
-| PATCH | `/api/v1/projects/{project_id}/tickets/{ticket_id}/move` | Path: `project_id: str, ticket_id: str`<br>Body: `{target_status: str}` | `{id: str, status: str, updated_at: datetime}` | 401, 404, 422 (BR-02) |
-| PATCH | `/api/v1/projects/{project_id}/tickets/{ticket_id}/assign` | Path: `project_id: str, ticket_id: str`<br>Body: `{user_id: str}` | `{id: str, assignee: str, updated_at: datetime}` | 401, 404 |
-| DELETE | `/api/v1/projects/{project_id}/tickets/{ticket_id}` | Path: `project_id: str, ticket_id: str` | `204 No Content` | 401, 404, 422 (`CANNOT_DELETE_TICKET_IN_PROGRESS`) |
-| POST | `/api/v1/projects/{project_id}/tickets/{ticket_id}/restore` | Path: `project_id: str, ticket_id: str` | `{id: str, status: str, restored_at: datetime}` | 401, 404 |
-| POST | `/api/v1/projects/{project_id}/tickets/link` | Path: `project_id: str`<br>Body: `{parent_id: str, child_id: str}` | `{parent_id: str, child_id: str, linked_at: datetime}` | 401, 404, 422 |
-| GET | `/api/v1/projects/{project_id}/tickets/{ticket_id}/history` | Path: `project_id: str, ticket_id: str` | `{items: HistoryEntry[], total: int}` | 401, 404 |
-| GET | `/api/v1/projects/{project_id}/tickets` | Path: `project_id: str`<br>Query: `story_id?: str, status?: str, assignee?: str, limit?: int, offset?: int` | `{items: Ticket[], total: int}` | 401, 404 |
+| POST | `/api/v1/sprints` | Body: `{project_id: str, name: str, goal?: str, start_date?: date, end_date?: date}` | `{id: str, project_id: str, name: str, goal: str, status: str, start_date: date, end_date: date, created_at: datetime}` | 400, 401 |
+| GET | `/api/v1/sprints` | Query: `project_id?: str, status?: str, limit?: int, offset?: int` | `{items: Sprint[], total: int}` | 401 |
+| GET | `/api/v1/sprints/{sprint_id}` | Path: `sprint_id: str` | `{id: str, project_id: str, name: str, goal: str, status: str, start_date: date, end_date: date, stories: Story[], created_at: datetime}` | 401, 404 |
+| POST | `/api/v1/sprints/{sprint_id}/start` | Path: `sprint_id: str` | `{id: str, status: str, started_at: datetime}` | 401, 404, 422 |
+| POST | `/api/v1/sprints/{sprint_id}/close` | Path: `sprint_id: str`<br>Query: `force?: bool` | `{id: str, status: str, closed_at: datetime}` | 401, 404, 422 (BR-04: `SPRINT_HAS_INCOMPLETE_STORIES`) |
+| POST | `/api/v1/sprints/{sprint_id}/stories` | Path: `sprint_id: str`<br>Body: `{story_id: str}` | `{message: str}` | 401, 404, 422 (BR-03) |
+| GET | `/api/v1/sprints/{sprint_id}/stories` | Path: `sprint_id: str` | `{items: Story[]}` | 401, 404 |
+| DELETE | `/api/v1/sprints/{sprint_id}/stories/{story_id}` | Path: `sprint_id: str, story_id: str` | `{message: str}` | 401, 404 |
 
 #### **Commentaires**
 
 | Méthode | Path | Paramètres | Réponse | Codes erreur |
 |---------|------|------------|---------|--------------|
-| POST | `/api/v1/projects/{project_id}/epics/{epic_id}/comments` | Path: `project_id: str, epic_id: str`<br>Body: `{author: str, content: str}` | `{id: str, epic_id: str, author: str, content: str, created_at: datetime}` | 400, 401, 404 |
-| POST | `/api/v1/projects/{project_id}/stories/{story_id}/comments` | Path: `project_id: str, story_id: str`<br>Body: `{author: str, content: str}` | `{id: str, story_id: str, author: str, content: str, created_at: datetime}` | 400, 401, 404 |
-| GET | `/api/v1/projects/{project_id}/epics/{epic_id}/comments` | Path: `project_id: str, epic_id: str`<br>Query: `limit?: int, offset?: int` | `{items: Comment[], total: int}` | 401, 404 |
-| GET | `/api/v1/projects/{project_id}/stories/{story_id}/comments` | Path: `project_id: str, story_id: str`<br>Query: `limit?: int, offset?: int` | `{items: Comment[], total: int}` | 401, 404 |
+| POST | `/api/v1/comments` | Body: `{entity_type: str, entity_id: str, author: str, content: str}` | `{id: str, entity_type: str, entity_id: str, author: str, content: str, created_at: datetime}` | 400, 401, 404 |
+| GET | `/api/v1/comments` | Query: `entity_type: str, entity_id: str, limit?: int, offset?: int` | `{items: Comment[], total: int}` | 401, 404 |
 
 #### **Documents**
 
 | Méthode | Path | Paramètres | Réponse | Codes erreur |
 |---------|------|------------|---------|--------------|
-| POST | `/api/v1/projects/{project_id}/documents` | Path: `project_id: str`<br>Body: `{title: str, content: str, template?: str}` | `{id: str, project_id: str, title: str, content: str, template: str\|null, version: int, created_at: datetime}` | 400, 401, 404 |
-| GET | `/api/v1/projects/{project_id}/documents/{document_id}` | Path: `project_id: str, document_id: str` | `{id: str, project_id: str, title: str, content: str, template: str\|null, version: int, created_at: datetime, updated_at: datetime}` | 401, 404 |
-| PUT | `/api/v1/projects/{project_id}/documents/{document_id}` | Path: `project_id: str, document_id: str`<br>Body: `{title?: str, content?: str}` | `{id: str, ...updated_fields, version: int, updated_at: datetime}` | 400, 401, 404 |
-| GET | `/api/v1/projects/{project_id}/documents` | Path: `project_id: str`<br>Query: `search?: str, template?: str, limit?: int, offset?: int` | `{items: Document[], total: int}` | 401, 404 |
-| GET | `/api/v1/templates` | Query: `type?: str` | `{items: Template[], total: int}` | 401 |
+| POST | `/api/v1/documents` | Body: `{project_id: str, title: str, content?: str, template_type?: str}` | `{id: str, project_id: str, title: str, content: str, template_type: str\|null, created_at: datetime}` | 400, 401 |
+| GET | `/api/v1/documents` | Query: `project_id?: str, template_type?: str, limit?: int, offset?: int` | `{items: Document[], total: int}` | 401 |
+| GET | `/api/v1/documents/search` | Query: `q: str, project_id?: str` | `{items: Document[]}` | 401 |
+| GET | `/api/v1/documents/{document_id}` | Path: `document_id: str` | `{id: str, project_id: str, title: str, content: str, template_type: str\|null, created_at: datetime, updated_at: datetime}` | 401, 404 |
+| PATCH | `/api/v1/documents/{document_id}` | Path: `document_id: str`<br>Body: `{title?: str, content?: str}` | `{id: str, ...updated_fields, updated_at: datetime}` | 400, 401, 404 |
 
 #### **Health & Métadonnées**
 
@@ -468,11 +458,13 @@ from src.mcp import tools  # Import pour enregistrer les tools
 
 app = FastAPI(title="LLM Task Manager")
 
-# Montage des routes REST
-app.include_router(projects.router, prefix="/api/v1")
-app.include_router(epics.router, prefix="/api/v1")
-app.include_router(stories.router, prefix="/api/v1")
-app.include_router(sprints.router, prefix="/api/v1")
+# Montage des routes REST (routes plates par ressource)
+app.include_router(projects.router, prefix="/api/v1/projects")
+app.include_router(epics.router, prefix="/api/v1/epics")
+app.include_router(stories.router, prefix="/api/v1/stories")
+app.include_router(sprints.router, prefix="/api/v1/sprints")
+app.include_router(comments.router, prefix="/api/v1/comments")
+app.include_router(documents.router, prefix="/api/v1/documents")
 
 # Montage du serveur MCP (transport SSE)
 mcp_server = init_mcp_sse(app)
